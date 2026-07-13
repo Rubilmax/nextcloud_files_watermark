@@ -1,0 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Watermarked shares contributors
+# SPDX-License-Identifier: CC0-1.0
+
+-r requirements.txt
+pytest>=9.1.1,<10.0

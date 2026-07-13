@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  - SPDX-FileCopyrightText: 2026 Watermarked shares contributors
+  - SPDX-License-Identifier: CC0-1.0
+-->
+<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:noNamespaceSchemaLocation="https://schema.phpunit.de/11.5/phpunit.xsd"
+	bootstrap="tests/php/bootstrap.php"
+	cacheDirectory=".phpunit.cache"
+	colors="true"
+	failOnWarning="true">
+	<testsuites>
+		<testsuite name="files_watermark">
+			<directory>tests/php</directory>
+		</testsuite>
+	</testsuites>
+</phpunit>

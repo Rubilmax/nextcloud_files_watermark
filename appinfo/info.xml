@@ -1,0 +1,27 @@
+<?xml version="1.0"?>
+<!--
+  - SPDX-FileCopyrightText: 2026 Watermarked shares contributors
+  - SPDX-License-Identifier: AGPL-3.0-or-later
+-->
+<info xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:noNamespaceSchemaLocation="https://apps.nextcloud.com/schema/apps/info.xsd">
+	<id>files_watermark</id>
+	<name>Watermarked shares</name>
+	<summary>Create public links to rasterized, visibly watermarked PDFs</summary>
+	<description><![CDATA[Adds a compact Watermarked shares section to the Files sharing sidebar. Watermarks are baked into page pixels using local PyMuPDF before an ordinary Nextcloud public link is created.]]></description>
+	<version>0.1.0</version>
+	<licence>AGPL-3.0-or-later</licence>
+	<author>Watermarked shares contributors</author>
+	<namespace>FilesWatermark</namespace>
+	<category>files</category>
+	<bugs>https://github.com/Rubilmax/nextcloud_files_watermark/issues</bugs>
+	<dependencies>
+		<php min-version="8.2" max-version="8.5" />
+		<lib>intl</lib>
+		<lib>mbstring</lib>
+		<nextcloud min-version="34" max-version="34" />
+	</dependencies>
+	<settings>
+		<admin-section>OCA\FilesWatermark\Settings\AdminSection</admin-section>
+	</settings>
+</info>

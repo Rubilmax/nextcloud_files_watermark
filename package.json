@@ -1,0 +1,48 @@
+{
+	"name": "files_watermark",
+	"version": "0.1.0",
+	"private": true,
+	"license": "AGPL-3.0-or-later",
+	"scripts": {
+		"build": "webpack --node-env production",
+		"dev": "webpack --node-env development --progress",
+		"lint": "eslint src tests/frontend --max-warnings=0",
+		"test:frontend": "vitest run",
+		"typecheck": "vue-tsc --noEmit"
+	},
+	"dependencies": {
+		"@nextcloud/axios": "^2.6.0",
+		"@nextcloud/capabilities": "^1.2.1",
+		"@nextcloud/dialogs": "^7.4.0",
+		"@nextcloud/event-bus": "^3.3.3",
+		"@nextcloud/files": "^4.0.0",
+		"@nextcloud/l10n": "^3.4.1",
+		"@nextcloud/router": "^3.1.0",
+		"@nextcloud/sharing": "^0.4.0",
+		"@nextcloud/vue": "^9.8.2",
+		"vue": "^3.5.39"
+	},
+	"devDependencies": {
+		"@nextcloud/eslint-config": "^9.0.1",
+		"@nextcloud/webpack-vue-config": "^7.0.2",
+		"@typescript-eslint/parser": "^8.63.0",
+		"@vitejs/plugin-vue": "^6.0.7",
+		"@vue/test-utils": "^2.4.11",
+		"eslint": "^10.7.0",
+		"jsdom": "^29.1.1",
+		"terser-webpack-plugin": "^5.6.1",
+		"typescript": "^6.0.3",
+		"vite": "^8.1.4",
+		"vitest": "^4.1.10",
+		"vue-tsc": "^3.3.7",
+		"webpack": "^5.108.4",
+		"webpack-cli": "^6.0.1"
+	},
+	"overrides": {
+		"uuid": "^11.1.1"
+	},
+	"engines": {
+		"node": "^24.0.0",
+		"npm": "^11.3.0"
+	}
+}

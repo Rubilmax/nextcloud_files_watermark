@@ -1,0 +1,40 @@
+version = 1
+
+[[annotations]]
+path = [
+  "composer.lock",
+  "package-lock.json",
+]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2026 Watermarked shares contributors"
+SPDX-License-Identifier = "AGPL-3.0-or-later"
+
+[[annotations]]
+path = [
+  "js/*.js",
+  "js/*.js.map",
+]
+precedence = "override"
+SPDX-FileCopyrightText = "2026 Watermarked shares contributors"
+SPDX-License-Identifier = "AGPL-3.0-or-later"
+
+[[annotations]]
+path = [
+  "composer.json",
+  "package.json",
+  "tsconfig.json",
+]
+precedence = "closest"
+SPDX-FileCopyrightText = "2026 Watermarked shares contributors"
+SPDX-License-Identifier = "CC0-1.0"
+
+[[annotations]]
+path = [
+  "vendor/**",
+]
+precedence = "override"
+SPDX-FileCopyrightText = [
+  "Nils Adermann",
+  "Jordi Boggiano",
+]
+SPDX-License-Identifier = "MIT"

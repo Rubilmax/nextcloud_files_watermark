@@ -1,0 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Watermarked shares contributors
+# SPDX-License-Identifier: CC0-1.0
+
+/.context export-ignore
+/.github export-ignore
+/node_modules export-ignore
+/tests export-ignore

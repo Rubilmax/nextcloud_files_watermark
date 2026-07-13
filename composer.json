@@ -1,0 +1,37 @@
+{
+	"name": "nextcloud/files_watermark",
+	"description": "Create rasterized, watermarked PDF derivatives and public links in Nextcloud",
+	"type": "project",
+	"license": "AGPL-3.0-or-later",
+	"autoload": {
+		"psr-4": {
+			"OCA\\FilesWatermark\\": "lib/"
+		}
+	},
+	"autoload-dev": {
+		"psr-4": {
+			"OCA\\FilesWatermark\\Tests\\": "tests/php/"
+		}
+	},
+	"require": {
+		"ext-intl": "*",
+		"ext-mbstring": "*",
+		"php": ">=8.2 <8.6"
+	},
+	"require-dev": {
+		"nextcloud/ocp": "34.0.1",
+		"phpstan/phpstan": "^2.2",
+		"phpunit/phpunit": "^11.5"
+	},
+	"scripts": {
+		"analyse": "phpstan analyse -c phpstan.neon --no-progress",
+		"build:vendor": "@composer install --no-dev --prefer-dist --classmap-authoritative --no-interaction",
+		"test": "phpunit -c phpunit.xml"
+	},
+	"config": {
+		"platform": {
+			"php": "8.2.0"
+		},
+		"sort-packages": true
+	}
+}

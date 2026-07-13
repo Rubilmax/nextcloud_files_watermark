@@ -1,0 +1,12 @@
+# SPDX-FileCopyrightText: 2026 Watermarked shares contributors
+# SPDX-License-Identifier: CC0-1.0
+
+/node_modules/
+/.phpunit.cache/
+/.pytest_cache/
+/.venv/
+/coverage/
+/js/*.js.map
+/js/*.hot-update.*
+__pycache__/
+*.py[cod]

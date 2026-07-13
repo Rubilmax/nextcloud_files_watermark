@@ -1,0 +1,12 @@
+# SPDX-FileCopyrightText: 2026 Watermarked shares contributors
+# SPDX-License-Identifier: CC0-1.0
+
+parameters:
+	level: max
+	paths:
+		- lib
+	bootstrapFiles:
+		- tests/php/bootstrap.php
+	scanFiles:
+		- tests/php/Stubs/LoadAdditionalScriptsEvent.php
+	tmpDir: .phpunit.cache/phpstan

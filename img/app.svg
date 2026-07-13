@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  - SPDX-FileCopyrightText: 2026 Watermarked shares contributors
+  - SPDX-License-Identifier: AGPL-3.0-or-later
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+	<path fill="currentColor" d="M7 2h12l6 6v22H7zm12 2.8V9h4.2zM9 4v24h14V11h-6V4z"/>
+	<path fill="currentColor" d="m9.7 18.5 1.1-1.7 11.5 7.1-1.1 1.7zm0-5 1.1-1.7 11.5 7.1-1.1 1.7z" opacity=".55"/>
+</svg>

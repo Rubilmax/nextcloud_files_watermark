@@ -22,8 +22,10 @@ final class AdminPreview implements ISettings {
 
 	/** @return TemplateResponse<\OCP\AppFramework\Http::STATUS_OK, array{}> */
 	public function getForm(): TemplateResponse {
+		$route = Application::APP_ID . '.preview.show';
 		return new TemplateResponse(Application::APP_ID, 'admin-preview', [
-			'previewUrl' => $this->urlGenerator->linkToRoute(Application::APP_ID . '.preview.show'),
+			'previewUrl' => $this->urlGenerator->linkToRoute($route),
+			'previewImageUrl' => $this->urlGenerator->linkToRoute($route, ['format' => 'image']),
 		], '');
 	}
 

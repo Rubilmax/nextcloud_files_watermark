@@ -16,10 +16,14 @@ use PHPUnit\Framework\TestCase;
 final class AdminPreviewTest extends TestCase {
 	public function testProvidesPreviewFormAfterAppearanceSettings(): void {
 		$urlGenerator = $this->createMock(IURLGenerator::class);
-		$urlGenerator->expects(self::once())
+		$urlGenerator->expects(self::exactly(2))
 			->method('linkToRoute')
-			->with('files_watermark.preview.show')
-			->willReturn('/apps/files_watermark/admin/preview');
+			->willReturnCallback(static function (string $route, array $parameters = []): string {
+				self::assertSame('files_watermark.preview.show', $route);
+				return empty($parameters)
+					? '/apps/files_watermark/admin/preview'
+					: '/apps/files_watermark/admin/preview?format=image';
+			});
 
 		$settings = new AdminPreview($urlGenerator);
 		$form = $settings->getForm();
@@ -31,6 +35,10 @@ final class AdminPreviewTest extends TestCase {
 		self::assertSame(
 			'/apps/files_watermark/admin/preview',
 			$form->getParams()['previewUrl'],
+		);
+		self::assertSame(
+			'/apps/files_watermark/admin/preview?format=image',
+			$form->getParams()['previewImageUrl'],
 		);
 	}
 }

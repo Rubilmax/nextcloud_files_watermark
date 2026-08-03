@@ -9,7 +9,7 @@
 	<name>Watermarked shares</name>
 	<summary>Create public links to rasterized, visibly watermarked PDFs</summary>
 	<description><![CDATA[Adds a compact Watermarked shares section to the Files sharing sidebar. Watermarks are baked into page pixels using local PyMuPDF before an ordinary Nextcloud public link is created.]]></description>
-	<version>0.1.0</version>
+	<version>0.1.1</version>
 	<licence>AGPL-3.0-or-later</licence>
 	<author>Watermarked shares contributors</author>
 	<namespace>FilesWatermark</namespace>

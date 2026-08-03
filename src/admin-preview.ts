@@ -90,16 +90,25 @@ function initializePreview(): void {
 		refreshTimer = setTimeout(refresh, REFRESH_DELAY_MS)
 	}
 
-	previewImage.addEventListener('load', () => {
+	const showLoadedPreview = (): void => {
 		documentContainer.setAttribute('aria-busy', 'false')
 		previewImage.hidden = false
 		status.textContent = ''
-	})
-	previewImage.addEventListener('error', () => {
+	}
+	const showPreviewError = (): void => {
 		documentContainer.setAttribute('aria-busy', 'false')
 		previewImage.hidden = true
 		status.textContent = root.dataset.errorText ?? ''
-	})
+	}
+	previewImage.addEventListener('load', showLoadedPreview)
+	previewImage.addEventListener('error', showPreviewError)
+	if (previewImage.complete) {
+		if (previewImage.naturalWidth > 0) {
+			showLoadedPreview()
+		} else if (previewImage.src !== '') {
+			showPreviewError()
+		}
+	}
 	form.addEventListener('input', scheduleRefresh)
 	form.addEventListener('change', scheduleRefresh)
 

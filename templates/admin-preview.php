@@ -21,18 +21,17 @@ script('files_watermark', 'files_watermark-admin-preview');
 	<p class="settings-hint">
 		<?php p($l->t('This sample PDF uses the appearance settings above and refreshes as you edit them.')); ?>
 	</p>
-	<div class="files-watermark-admin-preview__document" aria-busy="true">
+	<div class="files-watermark-admin-preview__document" aria-busy="false">
 		<img
 			class="files-watermark-admin-preview__image"
-			alt="<?php p($l->t('Watermarked PDF preview')); ?>"
-			hidden>
+			src="<?php p($_['previewImageUrl']); ?>"
+			alt="<?php p($l->t('Watermarked PDF preview')); ?>">
 	</div>
 	<div class="files-watermark-admin-preview__footer">
-		<span class="files-watermark-admin-preview__status" role="status" aria-live="polite">
-			<?php p($l->t('Rendering watermark preview…')); ?>
-		</span>
+		<span class="files-watermark-admin-preview__status" role="status" aria-live="polite"></span>
 		<a
 			class="files-watermark-admin-preview__open"
+			href="<?php p($_['previewUrl']); ?>"
 			target="_blank"
 			rel="noopener noreferrer">
 			<?php p($l->t('Open PDF preview')); ?>

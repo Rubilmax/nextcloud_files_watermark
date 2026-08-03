@@ -21,6 +21,7 @@ def run_renderer(
     dpi: int = 120,
     max_pages: int = 20,
     appearance: dict[str, object] | None = None,
+    preview_image: Path | None = None,
 ) -> subprocess.CompletedProcess[str]:
     config: dict[str, object] = {
         "text": text,
@@ -36,8 +37,11 @@ def run_renderer(
         "watermarkVerticalInterval": 78,
     }
     config.update(appearance or {})
+    command = [sys.executable, str(SCRIPT), str(source), str(output)]
+    if preview_image is not None:
+        command.append(str(preview_image))
     return subprocess.run(
-        [sys.executable, str(SCRIPT), str(source), str(output)],
+        command,
         input=json.dumps(config, ensure_ascii=False),
         text=True,
         capture_output=True,
@@ -122,6 +126,7 @@ def test_unicode_and_long_watermark_produces_visible_tiling(tmp_path: Path) -> N
 def test_applies_configured_watermark_appearance(tmp_path: Path) -> None:
     source = tmp_path / "blank.pdf"
     output = tmp_path / "red-watermark.pdf"
+    preview_image = tmp_path / "red-watermark.jpg"
     document = pymupdf.open()
     document.new_page(width=400, height=300)
     document.save(source)
@@ -141,6 +146,7 @@ def test_applies_configured_watermark_appearance(tmp_path: Path) -> None:
             "watermarkHorizontalGap": 0,
             "watermarkVerticalInterval": 80,
         },
+        preview_image=preview_image,
     )
     assert result.returncode == 0, result.stderr
 
@@ -148,6 +154,11 @@ def test_applies_configured_watermark_appearance(tmp_path: Path) -> None:
         pixmap = marked[0].get_pixmap(dpi=48, colorspace=pymupdf.csRGB)
         pixels = zip(pixmap.samples[0::3], pixmap.samples[1::3], pixmap.samples[2::3])
         assert sum(red > green + 40 and red > blue + 40 for red, green, blue in pixels) > 100
+
+    assert preview_image.read_bytes().startswith(b"\xff\xd8")
+    preview_pixmap = pymupdf.Pixmap(preview_image)
+    assert abs(preview_pixmap.width - round(400 * 96 / 72)) <= 1
+    assert abs(preview_pixmap.height - round(300 * 96 / 72)) <= 1
 
 
 def test_rejects_invalid_watermark_appearance(tmp_path: Path) -> None:

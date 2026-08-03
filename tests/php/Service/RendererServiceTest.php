@@ -118,7 +118,9 @@ final class RendererServiceTest extends TestCase {
 		$runner = new FakeProcessRunner(new ProcessResult(0, '', ''));
 		$runner->createOutput = true;
 		$output = tempnam(sys_get_temp_dir(), 'watermark-preview-renderer-test-');
+		$previewImage = tempnam(sys_get_temp_dir(), 'watermark-preview-image-test-');
 		self::assertNotFalse($output);
+		self::assertNotFalse($previewImage);
 
 		try {
 			$renderer = new RendererService($this->createConfig(), $runner);
@@ -133,6 +135,7 @@ final class RendererServiceTest extends TestCase {
 				210,
 				70,
 				120,
+				$previewImage,
 			);
 			$input = json_decode($runner->lastInput, true, flags: JSON_THROW_ON_ERROR);
 
@@ -143,8 +146,11 @@ final class RendererServiceTest extends TestCase {
 			self::assertSame(210, $input['watermarkMinimumHorizontalInterval']);
 			self::assertSame(70, $input['watermarkHorizontalGap']);
 			self::assertSame(120, $input['watermarkVerticalInterval']);
+			self::assertSame($previewImage, $runner->lastCommand[4]);
+			self::assertSame('%JPEG-preview', file_get_contents($previewImage));
 		} finally {
 			@unlink($output);
+			@unlink($previewImage);
 		}
 	}
 
@@ -213,6 +219,9 @@ final class FakeProcessRunner extends ProcessRunner {
 		}
 		if ($this->createOutput) {
 			file_put_contents($command[3], '%PDF-rendered');
+			if (isset($command[4])) {
+				file_put_contents($command[4], '%JPEG-preview');
+			}
 		}
 		return $this->result;
 	}

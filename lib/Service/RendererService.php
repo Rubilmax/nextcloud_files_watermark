@@ -58,6 +58,7 @@ final class RendererService {
 		?int $minimumHorizontalInterval,
 		?int $horizontalGap,
 		?int $verticalInterval,
+		?string $previewImagePath = null,
 	): void {
 		$fontSize ??= $this->config->getWatermarkFontSize();
 		$color = $color === null ? $this->config->getWatermarkColor() : strtolower(trim($color));
@@ -92,6 +93,7 @@ final class RendererService {
 			$minimumHorizontalInterval,
 			$horizontalGap,
 			$verticalInterval,
+			$previewImagePath,
 		);
 	}
 
@@ -106,6 +108,7 @@ final class RendererService {
 		int $minimumHorizontalInterval,
 		int $horizontalGap,
 		int $verticalInterval,
+		?string $previewImagePath = null,
 	): void {
 		try {
 			$input = json_encode([
@@ -121,13 +124,17 @@ final class RendererService {
 				'watermarkHorizontalGap' => $horizontalGap,
 				'watermarkVerticalInterval' => $verticalInterval,
 			], JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE);
+			$command = [
+				$this->config->getPythonExecutable(),
+				$this->getScriptPath(),
+				$inputPath,
+				$outputPath,
+			];
+			if ($previewImagePath !== null) {
+				$command[] = $previewImagePath;
+			}
 			$result = $this->processRunner->run(
-				[
-					$this->config->getPythonExecutable(),
-					$this->getScriptPath(),
-					$inputPath,
-					$outputPath,
-				],
+				$command,
 				$input,
 				$this->config->getTimeoutSeconds(),
 			);
@@ -147,7 +154,9 @@ final class RendererService {
 			);
 		}
 
-		if ($result->exitCode === 0 && is_file($outputPath) && filesize($outputPath) > 0) {
+		$hasPreviewImage = $previewImagePath === null
+			|| (is_file($previewImagePath) && filesize($previewImagePath) > 0);
+		if ($result->exitCode === 0 && is_file($outputPath) && filesize($outputPath) > 0 && $hasPreviewImage) {
 			return;
 		}
 

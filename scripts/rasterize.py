@@ -207,7 +207,12 @@ def add_staggered_watermarks(
         row += 1
 
 
-def rasterize(input_path: Path, output_path: Path, config: dict[str, Any]) -> None:
+def rasterize(
+    input_path: Path,
+    output_path: Path,
+    config: dict[str, Any],
+    preview_image_path: Path | None = None,
+) -> None:
     try:
         source = pymupdf.open(input_path)
     except Exception as exception:
@@ -284,6 +289,8 @@ def rasterize(input_path: Path, output_path: Path, config: dict[str, Any]) -> No
                         "jpeg",
                         jpg_quality=config["jpegQuality"],
                     )
+                    if preview_image_path is not None and source_page.number == 0:
+                        preview_image_path.write_bytes(jpeg)
                 finally:
                     scratch.close()
 
@@ -310,18 +317,29 @@ def rasterize(input_path: Path, output_path: Path, config: dict[str, Any]) -> No
 
 
 def main() -> None:
-    if len(sys.argv) != 3:
-        fail(EXIT_BAD_REQUEST, "invalid_arguments", "Expected input and output PDF paths.")
+    if len(sys.argv) not in (3, 4):
+        fail(
+            EXIT_BAD_REQUEST,
+            "invalid_arguments",
+            "Expected input and output PDF paths, with an optional preview image path.",
+        )
 
     input_path = Path(sys.argv[1])
     output_path = Path(sys.argv[2])
+    preview_image_path = Path(sys.argv[3]) if len(sys.argv) == 4 else None
     if not input_path.is_file():
         fail(EXIT_BAD_REQUEST, "missing_input", "Input PDF does not exist.")
     if output_path == input_path:
         fail(EXIT_BAD_REQUEST, "invalid_output", "Output path must differ from input path.")
+    if preview_image_path is not None and preview_image_path in (input_path, output_path):
+        fail(
+            EXIT_BAD_REQUEST,
+            "invalid_preview_output",
+            "Preview image path must differ from the input and output PDF paths.",
+        )
 
     config = read_config()
-    rasterize(input_path, output_path, config)
+    rasterize(input_path, output_path, config, preview_image_path)
     with pymupdf.open(output_path) as output:
         print(json.dumps({"pages": output.page_count}, separators=(",", ":")))
 

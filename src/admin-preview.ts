@@ -51,11 +51,11 @@ function initializePreview(): void {
 	}
 
 	const previewUrl = root.dataset.previewUrl
-	const iframe = root.querySelector<HTMLIFrameElement>('.files-watermark-admin-preview__frame')
+	const previewImage = root.querySelector<HTMLImageElement>('.files-watermark-admin-preview__image')
 	const documentContainer = root.querySelector<HTMLElement>('.files-watermark-admin-preview__document')
 	const status = root.querySelector<HTMLElement>('.files-watermark-admin-preview__status')
 	const openLink = root.querySelector<HTMLAnchorElement>('.files-watermark-admin-preview__open')
-	if (!previewUrl || !iframe || !documentContainer || !status || !openLink) {
+	if (!previewUrl || !previewImage || !documentContainer || !status || !openLink) {
 		return
 	}
 
@@ -77,10 +77,12 @@ function initializePreview(): void {
 		}
 
 		url.searchParams.set('_', Date.now().toString())
+		const imageUrl = new URL(url)
+		imageUrl.searchParams.set('format', 'image')
 		status.textContent = root.dataset.loadingText ?? ''
 		documentContainer.setAttribute('aria-busy', 'true')
 		openLink.href = url.toString()
-		iframe.src = url.toString()
+		previewImage.src = imageUrl.toString()
 	}
 
 	const scheduleRefresh = (): void => {
@@ -88,9 +90,15 @@ function initializePreview(): void {
 		refreshTimer = setTimeout(refresh, REFRESH_DELAY_MS)
 	}
 
-	iframe.addEventListener('load', () => {
+	previewImage.addEventListener('load', () => {
 		documentContainer.setAttribute('aria-busy', 'false')
+		previewImage.hidden = false
 		status.textContent = ''
+	})
+	previewImage.addEventListener('error', () => {
+		documentContainer.setAttribute('aria-busy', 'false')
+		previewImage.hidden = true
+		status.textContent = root.dataset.errorText ?? ''
 	})
 	form.addEventListener('input', scheduleRefresh)
 	form.addEventListener('change', scheduleRefresh)

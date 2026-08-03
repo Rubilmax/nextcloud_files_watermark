@@ -15,15 +15,17 @@ script('files_watermark', 'files_watermark-admin-preview');
 	class="section files-watermark-admin-preview"
 	data-preview-url="<?php p($_['previewUrl']); ?>"
 	data-loading-text="<?php p($l->t('Rendering watermark preview…')); ?>"
-	data-invalid-text="<?php p($l->t('Enter valid appearance settings to update the preview.')); ?>">
+	data-invalid-text="<?php p($l->t('Enter valid appearance settings to update the preview.')); ?>"
+	data-error-text="<?php p($l->t('The watermarked PDF could not be generated.')); ?>">
 	<h2><?php p($l->t('Watermark preview')); ?></h2>
 	<p class="settings-hint">
 		<?php p($l->t('This sample PDF uses the appearance settings above and refreshes as you edit them.')); ?>
 	</p>
 	<div class="files-watermark-admin-preview__document" aria-busy="true">
-		<iframe
-			class="files-watermark-admin-preview__frame"
-			title="<?php p($l->t('Watermarked PDF preview')); ?>"></iframe>
+		<img
+			class="files-watermark-admin-preview__image"
+			alt="<?php p($l->t('Watermarked PDF preview')); ?>"
+			hidden>
 	</div>
 	<div class="files-watermark-admin-preview__footer">
 		<span class="files-watermark-admin-preview__status" role="status" aria-live="polite">

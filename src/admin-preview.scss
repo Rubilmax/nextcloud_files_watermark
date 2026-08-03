@@ -8,7 +8,10 @@
 
 	&__document {
 		position: relative;
+		display: grid;
+		place-items: center;
 		width: min(100%, 760px);
+		height: clamp(520px, 72vh, 760px);
 		margin-top: 16px;
 		overflow: hidden;
 		border: 1px solid var(--color-border);
@@ -27,12 +30,13 @@
 		}
 	}
 
-	&__frame {
+	&__image {
 		display: block;
-		width: 100%;
-		height: clamp(520px, 72vh, 760px);
-		border: 0;
+		max-width: 100%;
+		max-height: 100%;
+		object-fit: contain;
 		background: white;
+		box-shadow: 0 1px 5px rgb(0 0 0 / 18%);
 	}
 
 	&__footer {
@@ -51,5 +55,23 @@
 
 	&__open:not([href]) {
 		display: none;
+	}
+}
+
+@media (width >= 768px) {
+	#files_watermark_files_watermark_renderer .settings-section {
+		display: grid;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		column-gap: 32px;
+		align-items: start;
+	}
+
+	#files_watermark_files_watermark_renderer .settings-section__name,
+	#files_watermark_files_watermark_renderer .settings-section__desc {
+		grid-column: 1 / -1;
+	}
+
+	#files_watermark_files_watermark_renderer .declarative-form-field {
+		min-width: 0;
 	}
 }

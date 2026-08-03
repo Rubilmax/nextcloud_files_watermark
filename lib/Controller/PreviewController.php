@@ -38,9 +38,14 @@ final class PreviewController extends Controller {
 		?int $minimumHorizontalInterval = null,
 		?int $horizontalGap = null,
 		?int $verticalInterval = null,
+		string $format = 'pdf',
 	): DataDisplayResponse {
+		if (!in_array($format, ['pdf', 'image'], true)) {
+			return $this->errorResponse('Invalid preview format.', Http::STATUS_BAD_REQUEST);
+		}
+
 		try {
-			$pdf = $this->preview->generate(
+			$data = $this->preview->generate(
 				$fontSize,
 				$color,
 				$opacity,
@@ -48,13 +53,15 @@ final class PreviewController extends Controller {
 				$minimumHorizontalInterval,
 				$horizontalGap,
 				$verticalInterval,
+				$format === 'image',
 			);
-			$response = new DataDisplayResponse($pdf, Http::STATUS_OK, [
-				'Content-Type' => 'application/pdf',
+			$response = new DataDisplayResponse($data, Http::STATUS_OK, [
+				'Content-Type' => $format === 'image' ? 'image/jpeg' : 'application/pdf',
 				'Cache-Control' => 'no-store, no-cache, must-revalidate',
 				'X-Content-Type-Options' => 'nosniff',
 			]);
-			$response->addHeader('Content-Disposition', 'inline; filename="watermark-preview.pdf"');
+			$filename = $format === 'image' ? 'watermark-preview.jpg' : 'watermark-preview.pdf';
+			$response->addHeader('Content-Disposition', sprintf('inline; filename="%s"', $filename));
 			return $response;
 		} catch (WatermarkException $exception) {
 			$this->logger->warning('Watermark preview rendering failed.', [

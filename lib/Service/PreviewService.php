@@ -28,9 +28,11 @@ final class PreviewService {
 		?int $minimumHorizontalInterval,
 		?int $horizontalGap,
 		?int $verticalInterval,
+		bool $asImage = false,
 	): string {
 		$inputPath = $this->createTemporaryPath('.preview-source.pdf');
 		$outputPath = null;
+		$imagePath = null;
 
 		try {
 			if (file_put_contents($inputPath, $this->dummyPdf->create()) === false) {
@@ -38,6 +40,9 @@ final class PreviewService {
 			}
 
 			$outputPath = $this->createTemporaryPath('.preview-watermarked.pdf');
+			if ($asImage) {
+				$imagePath = $this->createTemporaryPath('.preview-watermarked.jpg');
+			}
 			$this->renderer->renderPreview(
 				$inputPath,
 				$outputPath,
@@ -49,18 +54,23 @@ final class PreviewService {
 				$minimumHorizontalInterval,
 				$horizontalGap,
 				$verticalInterval,
+				$imagePath,
 			);
 
-			$pdf = file_get_contents($outputPath);
-			if ($pdf === false || $pdf === '') {
-				throw new RuntimeException('The watermarked preview PDF could not be read.');
+			$resultPath = $asImage ? $imagePath : $outputPath;
+			$result = file_get_contents($resultPath);
+			if ($result === false || $result === '') {
+				throw new RuntimeException('The watermarked preview output could not be read.');
 			}
 
-			return $pdf;
+			return $result;
 		} finally {
 			$this->removeTemporaryFile($inputPath);
 			if ($outputPath !== null) {
 				$this->removeTemporaryFile($outputPath);
+			}
+			if ($imagePath !== null) {
+				$this->removeTemporaryFile($imagePath);
 			}
 		}
 	}

@@ -92,7 +92,8 @@ export async function createPublicShare(options: ShareOptions): Promise<string> 
 			expireDate: options.expireDate,
 			label: options.label,
 			note: options.note,
-			sendPasswordByTalk: options.sendPasswordByTalk,
+			// Nextcloud's controller accepts the literal string "true", not a JSON boolean.
+			sendPasswordByTalk: options.sendPasswordByTalk ? 'true' : undefined,
 			attributes,
 		},
 	)

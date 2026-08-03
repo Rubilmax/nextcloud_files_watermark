@@ -25,7 +25,7 @@ describe('sharing API helpers', () => {
 		expect([...normalized]).toHaveLength(128)
 	})
 
-	it('serializes the standard hide-download share attribute', async () => {
+	it('serializes share options using the types expected by Nextcloud', async () => {
 		vi.mocked(axios.post).mockResolvedValue({
 			data: { ocs: { data: { url: 'https://cloud.example/s/token' } } },
 		})
@@ -41,7 +41,29 @@ describe('sharing API helpers', () => {
 			'/ocs/v2.php/apps/files_sharing/api/v1/shares',
 			expect.objectContaining({
 				shareType: 3,
+				sendPasswordByTalk: undefined,
 				attributes: JSON.stringify([{ scope: 'permissions', key: 'download', value: false }]),
+			}),
+		)
+	})
+
+	it('serializes the Talk password option as the literal string expected by Nextcloud', async () => {
+		vi.mocked(axios.post).mockResolvedValue({
+			data: { ocs: { data: { url: 'https://cloud.example/s/token' } } },
+		})
+		await createPublicShare({
+			path: '/Report.pdf',
+			permissions: 1,
+			password: 'correct horse battery staple',
+			expireDate: '',
+			hideDownload: false,
+			sendPasswordByTalk: true,
+		})
+
+		expect(axios.post).toHaveBeenCalledWith(
+			'/ocs/v2.php/apps/files_sharing/api/v1/shares',
+			expect.objectContaining({
+				sendPasswordByTalk: 'true',
 			}),
 		)
 	})

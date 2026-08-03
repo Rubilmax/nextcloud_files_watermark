@@ -88,7 +88,11 @@ final class RendererServiceTest extends TestCase {
 
 		self::assertTrue($status['available']);
 		self::assertSame('1.28.0', $status['version']);
-		self::assertSame(['python3', '-c', 'import pymupdf; print(pymupdf.__version__)'], $runner->lastCommand);
+		self::assertSame([
+			ConfigService::DEFAULT_PYTHON,
+			'-c',
+			'import pymupdf; print(pymupdf.__version__)',
+		], $runner->lastCommand);
 	}
 
 	private function createConfig(): ConfigService {

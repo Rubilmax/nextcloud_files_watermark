@@ -42,32 +42,32 @@ sudo apt-get install python3 python3-venv
 python3 --version
 ```
 
-From the app directory, create a local virtual environment with a sufficiently recent Python:
+Create the renderer virtual environment at the app's default location with a sufficiently recent Python, then install the pinned dependency range from the app directory:
 
 ```sh
 cd /var/www/nextcloud/apps/files_watermark
-sudo python3 -m venv .venv
-sudo .venv/bin/python -m pip install --upgrade pip
-sudo .venv/bin/python -m pip install -r requirements.txt
+sudo python3 -m venv /opt/files-watermark-python
+sudo /opt/files-watermark-python/bin/python -m pip install --upgrade pip
+sudo /opt/files-watermark-python/bin/python -m pip install -r requirements.txt
 ```
 
-In **Administration settings → Watermark settings**, set **Python executable** to the absolute virtual-environment executable, for example:
+The default **Python executable** in **Administration settings → Watermark settings** already points to:
 
 ```text
-/var/www/nextcloud/apps/files_watermark/.venv/bin/python
+/opt/files-watermark-python/bin/python
 ```
 
-The same setting can be applied with `occ`:
+If an earlier installation stored another value, reset it with `occ`:
 
 ```sh
 cd /var/www/nextcloud
-sudo -u www-data php occ config:app:set files_watermark python_executable --value="/var/www/nextcloud/apps/files_watermark/.venv/bin/python"
+sudo -u www-data php occ config:app:set files_watermark python_executable --value="/opt/files-watermark-python/bin/python"
 ```
 
 There is no need to activate the virtual environment. Verify that the PHP/web-server user can execute it:
 
 ```sh
-sudo -u www-data /var/www/nextcloud/apps/files_watermark/.venv/bin/python \
+sudo -u www-data /opt/files-watermark-python/bin/python \
 	-c 'import pymupdf; print(pymupdf.__version__)'
 sudo -u www-data php /var/www/nextcloud/occ setupchecks
 ```
@@ -121,7 +121,7 @@ The renderer is now part of the immutable image rather than container state. Doc
 
 | Setting | Default | Allowed range |
 | --- | ---: | ---: |
-| Python executable | `python3` | non-empty executable name or path |
+| Python executable | `/opt/files-watermark-python/bin/python` | non-empty executable name or path |
 | Raster DPI | 180 | 96–300 |
 | Maximum source size | 50 MiB | 1–1024 MiB |
 | Maximum pages | 200 | 1–5000 |

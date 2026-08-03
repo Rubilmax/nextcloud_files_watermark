@@ -20,7 +20,7 @@ final class ConfigService {
 	public const KEY_MAX_PAGES = 'maximum_pages';
 	public const KEY_TIMEOUT = 'timeout_seconds';
 
-	public const DEFAULT_PYTHON = 'python3';
+	public const DEFAULT_PYTHON = '/opt/files-watermark-python/bin/python';
 	public const DEFAULT_DPI = 180;
 	public const DEFAULT_MAX_SOURCE_MIB = 50;
 	public const DEFAULT_MAX_PAGES = 200;

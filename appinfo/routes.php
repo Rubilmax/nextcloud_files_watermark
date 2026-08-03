@@ -8,6 +8,13 @@ declare(strict_types=1);
  */
 
 return [
+	'routes' => [
+		[
+			'name' => 'preview#show',
+			'url' => '/admin/preview',
+			'verb' => 'GET',
+		],
+	],
 	'ocs' => [
 		[
 			'name' => 'watermark#create',

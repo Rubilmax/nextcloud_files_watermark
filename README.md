@@ -134,6 +134,8 @@ The renderer is now part of the immutable image rather than container state. Doc
 | Maximum pages | 200 | 1–5000 |
 | Timeout | 120 seconds | 10–3600 seconds |
 
+The settings page includes a live, one-page PDF preview rendered through the same PyMuPDF pipeline as generated files. Valid appearance edits are previewed after a short debounce without persisting preview-only values.
+
 Invalid stored values are reported by the setup check and clamped to safe defaults at runtime.
 
 ## How generation works

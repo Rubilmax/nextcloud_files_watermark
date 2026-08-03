@@ -33,19 +33,93 @@ final class RendererService {
 	}
 
 	public function render(string $inputPath, string $outputPath, string $text): void {
+		$this->renderConfigured(
+			$inputPath,
+			$outputPath,
+			$text,
+			$this->config->getWatermarkFontSize(),
+			$this->config->getWatermarkColor(),
+			$this->config->getWatermarkOpacityPercent(),
+			$this->config->getWatermarkAngleDegrees(),
+			$this->config->getWatermarkMinimumHorizontalInterval(),
+			$this->config->getWatermarkHorizontalGap(),
+			$this->config->getWatermarkVerticalInterval(),
+		);
+	}
+
+	public function renderPreview(
+		string $inputPath,
+		string $outputPath,
+		string $text,
+		?int $fontSize,
+		?string $color,
+		?int $opacity,
+		?int $angle,
+		?int $minimumHorizontalInterval,
+		?int $horizontalGap,
+		?int $verticalInterval,
+	): void {
+		$fontSize ??= $this->config->getWatermarkFontSize();
+		$color = $color === null ? $this->config->getWatermarkColor() : strtolower(trim($color));
+		$opacity ??= $this->config->getWatermarkOpacityPercent();
+		$angle ??= $this->config->getWatermarkAngleDegrees();
+		$minimumHorizontalInterval ??= $this->config->getWatermarkMinimumHorizontalInterval();
+		$horizontalGap ??= $this->config->getWatermarkHorizontalGap();
+		$verticalInterval ??= $this->config->getWatermarkVerticalInterval();
+
+		if ($fontSize < 8 || $fontSize > 144
+			|| preg_match('/^#[0-9a-f]{6}$/', $color) !== 1
+			|| $opacity < 1 || $opacity > 100
+			|| $angle < -180 || $angle > 180
+			|| $minimumHorizontalInterval < 20 || $minimumHorizontalInterval > 2000
+			|| $horizontalGap < 0 || $horizontalGap > 1000
+			|| $verticalInterval < 20 || $verticalInterval > 2000) {
+			throw new WatermarkException(
+				'Invalid watermark preview appearance settings.',
+				'invalid_render_request',
+				Http::STATUS_BAD_REQUEST,
+			);
+		}
+
+		$this->renderConfigured(
+			$inputPath,
+			$outputPath,
+			$text,
+			$fontSize,
+			$color,
+			$opacity,
+			$angle,
+			$minimumHorizontalInterval,
+			$horizontalGap,
+			$verticalInterval,
+		);
+	}
+
+	private function renderConfigured(
+		string $inputPath,
+		string $outputPath,
+		string $text,
+		int $fontSize,
+		string $color,
+		int $opacity,
+		int $angle,
+		int $minimumHorizontalInterval,
+		int $horizontalGap,
+		int $verticalInterval,
+	): void {
 		try {
 			$input = json_encode([
 				'text' => $text,
 				'dpi' => $this->config->getRasterDpi(),
 				'maxPages' => $this->config->getMaximumPages(),
 				'jpegQuality' => 88,
-				'watermarkFontSize' => $this->config->getWatermarkFontSize(),
-				'watermarkColor' => $this->config->getWatermarkColor(),
-				'watermarkOpacityPercent' => $this->config->getWatermarkOpacityPercent(),
-				'watermarkAngle' => $this->config->getWatermarkAngleDegrees(),
-				'watermarkMinimumHorizontalInterval' => $this->config->getWatermarkMinimumHorizontalInterval(),
-				'watermarkHorizontalGap' => $this->config->getWatermarkHorizontalGap(),
-				'watermarkVerticalInterval' => $this->config->getWatermarkVerticalInterval(),
+				'watermarkFontSize' => $fontSize,
+				'watermarkColor' => $color,
+				'watermarkOpacityPercent' => $opacity,
+				'watermarkAngle' => $angle,
+				'watermarkMinimumHorizontalInterval' => $minimumHorizontalInterval,
+				'watermarkHorizontalGap' => $horizontalGap,
+				'watermarkVerticalInterval' => $verticalInterval,
 			], JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE);
 			$result = $this->processRunner->run(
 				[

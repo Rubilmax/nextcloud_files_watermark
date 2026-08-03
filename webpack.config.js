@@ -21,6 +21,7 @@ webpackConfig.module.rules = Object.values(webpackRules)
 
 webpackConfig.entry = {
 	main: path.join(__dirname, 'src', 'main.ts'),
+	'admin-preview': path.join(__dirname, 'src', 'admin-preview.ts'),
 }
 
 module.exports = webpackConfig

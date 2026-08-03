@@ -114,6 +114,65 @@ final class RendererServiceTest extends TestCase {
 		}
 	}
 
+	public function testPreviewUsesUnsavedAppearanceOverrides(): void {
+		$runner = new FakeProcessRunner(new ProcessResult(0, '', ''));
+		$runner->createOutput = true;
+		$output = tempnam(sys_get_temp_dir(), 'watermark-preview-renderer-test-');
+		self::assertNotFalse($output);
+
+		try {
+			$renderer = new RendererService($this->createConfig(), $runner);
+			$renderer->renderPreview(
+				'/input.pdf',
+				$output,
+				'Preview',
+				42,
+				'#abcdef',
+				65,
+				-15,
+				210,
+				70,
+				120,
+			);
+			$input = json_decode($runner->lastInput, true, flags: JSON_THROW_ON_ERROR);
+
+			self::assertSame(42, $input['watermarkFontSize']);
+			self::assertSame('#abcdef', $input['watermarkColor']);
+			self::assertSame(65, $input['watermarkOpacityPercent']);
+			self::assertSame(-15, $input['watermarkAngle']);
+			self::assertSame(210, $input['watermarkMinimumHorizontalInterval']);
+			self::assertSame(70, $input['watermarkHorizontalGap']);
+			self::assertSame(120, $input['watermarkVerticalInterval']);
+		} finally {
+			@unlink($output);
+		}
+	}
+
+	public function testPreviewRejectsInvalidAppearanceBeforeStartingRenderer(): void {
+		$runner = new FakeProcessRunner(new ProcessResult(0, '', ''));
+		$renderer = new RendererService($this->createConfig(), $runner);
+
+		try {
+			$renderer->renderPreview(
+				'/input.pdf',
+				'/output.pdf',
+				'Preview',
+				7,
+				'#333333',
+				30,
+				30,
+				145,
+				48,
+				78,
+			);
+			self::fail('Expected WatermarkException');
+		} catch (WatermarkException $exception) {
+			self::assertSame('invalid_render_request', $exception->getErrorCode());
+			self::assertSame(Http::STATUS_BAD_REQUEST, $exception->getHttpStatus());
+			self::assertSame([], $runner->lastCommand);
+		}
+	}
+
 	public function testAvailabilityChecksPinnedVersionRange(): void {
 		$runner = new FakeProcessRunner(new ProcessResult(0, "1.28.0\n", ''));
 		$status = (new RendererService($this->createConfig(), $runner))->checkAvailability();

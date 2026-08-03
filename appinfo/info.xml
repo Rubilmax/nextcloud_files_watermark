@@ -22,6 +22,7 @@
 		<nextcloud min-version="34" max-version="34" />
 	</dependencies>
 	<settings>
+		<admin>OCA\FilesWatermark\Settings\AdminPreview</admin>
 		<admin-section>OCA\FilesWatermark\Settings\AdminSection</admin-section>
 	</settings>
 </info>

@@ -100,7 +100,13 @@ OC.L10N.register(
 	  "The rendered PDF could not be opened.": "Impossibile aprire il PDF renderizzato.",
 	  "The target folder is currently locked.": "La cartella di destinazione è attualmente bloccata.",
 	  "The watermarked PDF could not be saved beside the source.": "Impossibile salvare il PDF con filigrana accanto al file sorgente.",
-	  "The watermarked PDF could not be generated.": "Impossibile generare il PDF con filigrana."
+	  "The watermarked PDF could not be generated.": "Impossibile generare il PDF con filigrana.",
+	  "Rendering watermark preview…": "Rendering dell’anteprima della filigrana…",
+	  "Enter valid appearance settings to update the preview.": "Inserisci impostazioni di aspetto valide per aggiornare l’anteprima.",
+	  "Watermark preview": "Anteprima della filigrana",
+	  "This sample PDF uses the appearance settings above and refreshes as you edit them.": "Questo PDF di esempio usa le impostazioni di aspetto sopra indicate e si aggiorna durante la modifica.",
+	  "Watermarked PDF preview": "Anteprima del PDF con filigrana",
+	  "Open PDF preview": "Apri anteprima PDF"
 	},
 	"nplurals=2; plural=(n != 1);"
 );

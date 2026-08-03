@@ -100,7 +100,13 @@ OC.L10N.register(
 	  "The rendered PDF could not be opened.": "Die gerenderte PDF-Datei konnte nicht geöffnet werden.",
 	  "The target folder is currently locked.": "Der Zielordner ist derzeit gesperrt.",
 	  "The watermarked PDF could not be saved beside the source.": "Die PDF-Datei mit Wasserzeichen konnte nicht neben der Quelle gespeichert werden.",
-	  "The watermarked PDF could not be generated.": "Die PDF-Datei mit Wasserzeichen konnte nicht erzeugt werden."
+	  "The watermarked PDF could not be generated.": "Die PDF-Datei mit Wasserzeichen konnte nicht erzeugt werden.",
+	  "Rendering watermark preview…": "Wasserzeichenvorschau wird gerendert…",
+	  "Enter valid appearance settings to update the preview.": "Geben Sie gültige Darstellungseinstellungen ein, um die Vorschau zu aktualisieren.",
+	  "Watermark preview": "Wasserzeichenvorschau",
+	  "This sample PDF uses the appearance settings above and refreshes as you edit them.": "Diese Beispiel-PDF verwendet die obigen Darstellungseinstellungen und wird beim Bearbeiten aktualisiert.",
+	  "Watermarked PDF preview": "Vorschau der PDF mit Wasserzeichen",
+	  "Open PDF preview": "PDF-Vorschau öffnen"
 	},
 	"nplurals=2; plural=(n != 1);"
 );

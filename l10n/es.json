@@ -99,7 +99,13 @@
     "The rendered PDF could not be opened.": "No se pudo abrir el PDF renderizado.",
     "The target folder is currently locked.": "La carpeta de destino está bloqueada actualmente.",
     "The watermarked PDF could not be saved beside the source.": "No se pudo guardar el PDF con marca de agua junto al archivo de origen.",
-    "The watermarked PDF could not be generated.": "No se pudo generar el PDF con marca de agua."
+    "The watermarked PDF could not be generated.": "No se pudo generar el PDF con marca de agua.",
+    "Rendering watermark preview…": "Renderizando la vista previa de la marca de agua…",
+    "Enter valid appearance settings to update the preview.": "Introduce ajustes de apariencia válidos para actualizar la vista previa.",
+    "Watermark preview": "Vista previa de la marca de agua",
+    "This sample PDF uses the appearance settings above and refreshes as you edit them.": "Este PDF de ejemplo utiliza los ajustes de apariencia anteriores y se actualiza al editarlos.",
+    "Watermarked PDF preview": "Vista previa del PDF con marca de agua",
+    "Open PDF preview": "Abrir vista previa del PDF"
   },
   "pluralForm": "nplurals=2; plural=(n != 1);"
 }

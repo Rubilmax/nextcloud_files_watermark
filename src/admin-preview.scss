@@ -1,0 +1,55 @@
+/**
+ * SPDX-FileCopyrightText: 2026 Watermarked shares contributors
+ * SPDX-License-Identifier: AGPL-3.0-or-later
+ */
+
+.files-watermark-admin-preview {
+	max-width: 900px;
+
+	&__document {
+		position: relative;
+		width: min(100%, 760px);
+		margin-top: 16px;
+		overflow: hidden;
+		border: 1px solid var(--color-border);
+		border-radius: var(--border-radius-large);
+		background: var(--color-background-dark);
+		box-shadow: 0 1px 6px rgb(0 0 0 / 12%);
+
+		&[aria-busy='true']::after {
+			position: absolute;
+			inset: 0;
+			display: grid;
+			place-items: center;
+			content: '';
+			background: color-mix(in srgb, var(--color-main-background) 35%, transparent);
+			pointer-events: none;
+		}
+	}
+
+	&__frame {
+		display: block;
+		width: 100%;
+		height: clamp(520px, 72vh, 760px);
+		border: 0;
+		background: white;
+	}
+
+	&__footer {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		width: min(100%, 760px);
+		min-height: 36px;
+		gap: 16px;
+		padding-top: 8px;
+	}
+
+	&__status {
+		color: var(--color-text-maxcontrast);
+	}
+
+	&__open:not([href]) {
+		display: none;
+	}
+}

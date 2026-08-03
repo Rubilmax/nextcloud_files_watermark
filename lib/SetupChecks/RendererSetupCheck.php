@@ -44,10 +44,28 @@ final class RendererSetupCheck implements ISetupCheck {
 		if (!$status['available']) {
 			return SetupResult::error($this->l10n->t(
 				'The Watermarked shares renderer is unavailable: %s',
-				$status['message'],
+				$this->translateRendererStatus($status),
 			));
 		}
 
-		return SetupResult::success($this->l10n->t($status['message']));
+		return SetupResult::success($this->translateRendererStatus($status));
+	}
+
+	/** @param array{available: bool, message: string, version?: string} $status */
+	private function translateRendererStatus(array $status): string {
+		if (isset($status['version'])) {
+			return $status['available']
+				? $this->l10n->t('PyMuPDF %s is available.', $status['version'])
+				: $this->l10n->t(
+					'PyMuPDF %s is outside the supported >=1.28.0,<1.29.0 range.',
+					$status['version'],
+				);
+		}
+
+		return match ($status['message']) {
+			'PHP proc_open is disabled.' => $this->l10n->t('PHP proc_open is disabled.'),
+			'Configured Python cannot import PyMuPDF.' => $this->l10n->t('Configured Python cannot import PyMuPDF.'),
+			default => $status['message'],
+		};
 	}
 }

@@ -13,6 +13,7 @@ import {
 	getDefaultPropfind,
 	resultToNode,
 } from '@nextcloud/files/dav'
+import { t } from '@nextcloud/l10n'
 import { generateOcsUrl } from '@nextcloud/router'
 
 export type GeneratedFile = {
@@ -97,7 +98,7 @@ export async function createPublicShare(options: ShareOptions): Promise<string> 
 	)
 
 	if (!response.data.ocs.data.url) {
-		throw new Error('The share API did not return a public URL.')
+		throw new Error(t('files_watermark', 'The share API did not return a public URL.'))
 	}
 	return response.data.ocs.data.url
 }
@@ -137,7 +138,7 @@ export function errorMessage(error: unknown): string {
 	if (error instanceof Error) {
 		return error.message
 	}
-	return 'An unexpected error occurred.'
+	return t('files_watermark', 'An unexpected error occurred.')
 }
 
 /**
@@ -160,6 +161,6 @@ export async function copyText(text: string): Promise<void> {
 	const copied = document.execCommand('copy')
 	textarea.remove()
 	if (!copied) {
-		throw new Error('The URL could not be copied.')
+		throw new Error(t('files_watermark', 'The URL could not be copied.'))
 	}
 }

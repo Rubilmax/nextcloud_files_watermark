@@ -13,6 +13,8 @@ SPDX-License-Identifier = "AGPL-3.0-or-later"
 path = [
   "js/*.js",
   "js/*.js.map",
+  "l10n/*.js",
+  "l10n/*.json",
 ]
 precedence = "override"
 SPDX-FileCopyrightText = "2026 Watermarked shares contributors"

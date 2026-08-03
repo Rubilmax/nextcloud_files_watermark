@@ -18,7 +18,9 @@ The watermark is baked into full-page RGB JPEG pixels. It is not a selectable or
 
 The app does not install Python or system packages. Administrators provide and maintain the local renderer environment.
 
-## Install as a Nextcloud submodule
+## Installation
+
+### Install the app as a Nextcloud submodule
 
 The repository includes compiled frontend assets and a production Composer autoloader under `vendor/`, so it can be mounted directly in a Nextcloud `apps/` directory without running Composer or npm on the server. The checkout directory must match the app ID:
 
@@ -30,14 +32,23 @@ php occ app:enable files_watermark
 
 After updating the submodule, enable the app normally with `occ`. Build-time dependencies are not needed on the Nextcloud host.
 
-## Renderer setup
+### Set up the renderer on a traditional server
+
+The renderer is not bundled with the app. On Debian or Ubuntu, install Python 3.10 or newer and virtual-environment support:
+
+```sh
+sudo apt-get update
+sudo apt-get install python3 python3-venv
+python3 --version
+```
 
 From the app directory, create a local virtual environment with a sufficiently recent Python:
 
 ```sh
-python3.10 -m venv .venv
-.venv/bin/python -m pip install --upgrade pip
-.venv/bin/pip install -r requirements.txt
+cd /var/www/nextcloud/apps/files_watermark
+sudo python3 -m venv .venv
+sudo .venv/bin/python -m pip install --upgrade pip
+sudo .venv/bin/python -m pip install -r requirements.txt
 ```
 
 In **Administration settings → Watermark settings**, set **Python executable** to the absolute virtual-environment executable, for example:
@@ -49,10 +60,62 @@ In **Administration settings → Watermark settings**, set **Python executable**
 The same setting can be applied with `occ`:
 
 ```sh
-php occ config:app:set files_watermark python_executable --value="/var/www/nextcloud/apps/files_watermark/.venv/bin/python"
+cd /var/www/nextcloud
+sudo -u www-data php occ config:app:set files_watermark python_executable --value="/var/www/nextcloud/apps/files_watermark/.venv/bin/python"
 ```
 
-Run `php occ setupchecks` to verify `proc_open`, the executable, PyMuPDF's pinned version range, and all configured bounds.
+There is no need to activate the virtual environment. Verify that the PHP/web-server user can execute it:
+
+```sh
+sudo -u www-data /var/www/nextcloud/apps/files_watermark/.venv/bin/python \
+	-c 'import pymupdf; print(pymupdf.__version__)'
+sudo -u www-data php /var/www/nextcloud/occ setupchecks
+```
+
+Replace `www-data` if PHP runs under a different account.
+
+### Set up the renderer with Docker
+
+Do not install Python interactively in a running container: those changes disappear when the container is replaced. Instead, extend the same Nextcloud image variant used by the deployment and bake the renderer into a reproducible image. For example, create `Dockerfile.nextcloud` next to the deployment's Compose file:
+
+```dockerfile
+FROM nextcloud:34-apache
+
+RUN apt-get update \
+	&& apt-get install -y --no-install-recommends python3 python3-venv \
+	&& python3 -m venv /opt/files-watermark-python \
+	&& /opt/files-watermark-python/bin/python -m pip install --no-cache-dir --upgrade pip \
+	&& /opt/files-watermark-python/bin/python -m pip install --no-cache-dir \
+		"PyMuPDF>=1.28.0,<1.29.0" \
+	&& rm -rf /var/lib/apt/lists/*
+```
+
+Change the `FROM` line if the deployment uses another Debian-based Nextcloud variant, such as `nextcloud:34-fpm`. Then build that Dockerfile from the existing Compose service, retaining its current volumes, environment, networks, and database configuration:
+
+```yaml
+services:
+  nextcloud:
+    build:
+      context: .
+      dockerfile: Dockerfile.nextcloud
+    image: local/nextcloud-files-watermark:34
+```
+
+Build and replace the Nextcloud container, then configure the absolute in-image path:
+
+```sh
+docker compose build --pull nextcloud
+docker compose up -d nextcloud
+docker compose exec -u www-data nextcloud php occ config:app:set \
+	files_watermark python_executable \
+	--value="/opt/files-watermark-python/bin/python"
+docker compose exec -u www-data nextcloud \
+	/opt/files-watermark-python/bin/python \
+	-c 'import pymupdf; print(pymupdf.__version__)'
+docker compose exec -u www-data nextcloud php occ setupchecks
+```
+
+The renderer is now part of the immutable image rather than container state. Docker can reuse the installation layer between builds, while rebuilding the image deliberately picks up base-image and dependency security updates. The application can also use a renderer sidecar, but that requires an HTTP renderer backend; the current implementation launches only a local executable with PHP `proc_open`.
 
 ## Administration settings
 

@@ -25,7 +25,6 @@ MIN_VERSION = (1, 28, 0)
 MAX_VERSION = (1, 29, 0)
 MAX_PAGE_PIXELS = 50_000_000
 MAX_PIXEL_DIMENSION = 32_768
-WATERMARK_ANGLE = 30.0
 
 
 def fail(exit_code: int, code: str, message: str) -> NoReturn:
@@ -71,6 +70,13 @@ def read_config() -> dict[str, Any]:
     dpi = config.get("dpi")
     max_pages = config.get("maxPages")
     quality = config.get("jpegQuality")
+    font_size = config.get("watermarkFontSize")
+    color = config.get("watermarkColor")
+    opacity = config.get("watermarkOpacityPercent")
+    angle = config.get("watermarkAngle")
+    minimum_horizontal_interval = config.get("watermarkMinimumHorizontalInterval")
+    horizontal_gap = config.get("watermarkHorizontalGap")
+    vertical_interval = config.get("watermarkVerticalInterval")
     if not isinstance(text, str) or not text or len(text) > 128:
         fail(EXIT_BAD_REQUEST, "invalid_text", "Watermark text must contain 1 to 128 characters.")
     if type(dpi) is not int or not 96 <= dpi <= 300:
@@ -79,6 +85,39 @@ def read_config() -> dict[str, Any]:
         fail(EXIT_BAD_REQUEST, "invalid_page_limit", "Maximum pages must be from 1 to 5000.")
     if type(quality) is not int or not 1 <= quality <= 100:
         fail(EXIT_BAD_REQUEST, "invalid_quality", "JPEG quality must be from 1 to 100.")
+    if type(font_size) is not int or not 8 <= font_size <= 144:
+        fail(EXIT_BAD_REQUEST, "invalid_font_size", "Watermark font size must be from 8 to 144 points.")
+    if not isinstance(color, str) or re.fullmatch(r"#[0-9a-fA-F]{6}", color) is None:
+        fail(
+            EXIT_BAD_REQUEST,
+            "invalid_color",
+            "Watermark color must be a six-digit hexadecimal color.",
+        )
+    if type(opacity) is not int or not 1 <= opacity <= 100:
+        fail(EXIT_BAD_REQUEST, "invalid_opacity", "Watermark opacity must be from 1 to 100 percent.")
+    if type(angle) is not int or not -180 <= angle <= 180:
+        fail(EXIT_BAD_REQUEST, "invalid_angle", "Watermark angle must be from -180 to 180 degrees.")
+    if (
+        type(minimum_horizontal_interval) is not int
+        or not 20 <= minimum_horizontal_interval <= 2000
+    ):
+        fail(
+            EXIT_BAD_REQUEST,
+            "invalid_minimum_horizontal_interval",
+            "Watermark minimum horizontal interval must be from 20 to 2000 points.",
+        )
+    if type(horizontal_gap) is not int or not 0 <= horizontal_gap <= 1000:
+        fail(
+            EXIT_BAD_REQUEST,
+            "invalid_horizontal_gap",
+            "Watermark horizontal gap must be from 0 to 1000 points.",
+        )
+    if type(vertical_interval) is not int or not 20 <= vertical_interval <= 2000:
+        fail(
+            EXIT_BAD_REQUEST,
+            "invalid_vertical_interval",
+            "Watermark vertical interval must be from 20 to 2000 points.",
+        )
 
     return config
 
@@ -91,16 +130,27 @@ def load_font() -> pymupdf.Font:
         return pymupdf.Font(fontname="cjk")
 
 
-def make_watermark_tile(text: str) -> pymupdf.Document:
-    font_size = 28.0
+def color_from_hex(value: str) -> tuple[float, float, float]:
+    """Convert a validated six-digit hexadecimal color into PyMuPDF RGB values."""
+    return (
+        int(value[1:3], 16) / 255,
+        int(value[3:5], 16) / 255,
+        int(value[5:7], 16) / 255,
+    )
+
+
+def make_watermark_tile(text: str, config: dict[str, Any]) -> pymupdf.Document:
+    font_size = float(config["watermarkFontSize"])
+    opacity = config["watermarkOpacityPercent"] / 100
+    color = color_from_hex(config["watermarkColor"])
     font = load_font()
     text_width = max(font.text_length(text, fontsize=font_size), font_size * 3)
     tile = pymupdf.open()
     tile_page = tile.new_page(width=text_width + 24, height=font_size * 1.8)
     writer = pymupdf.TextWriter(
         tile_page.rect,
-        opacity=0.20,
-        color=(0.20, 0.20, 0.20),
+        opacity=opacity,
+        color=color,
     )
     writer.append(
         pymupdf.Point(12, font_size * 1.25),
@@ -110,25 +160,33 @@ def make_watermark_tile(text: str) -> pymupdf.Document:
     )
     writer.write_text(
         tile_page,
-        opacity=0.20,
-        color=(0.20, 0.20, 0.20),
+        opacity=opacity,
+        color=color,
         overlay=True,
     )
     return tile
 
 
-def add_staggered_watermarks(page: pymupdf.Page, tile: pymupdf.Document) -> None:
-    """Cover the page with repeated, staggered tiles rotated by 30 degrees."""
+def add_staggered_watermarks(
+    page: pymupdf.Page,
+    tile: pymupdf.Document,
+    config: dict[str, Any],
+) -> None:
+    """Cover the page with repeated, staggered watermark tiles."""
     natural = tile[0].rect
-    angle = math.radians(WATERMARK_ANGLE)
+    watermark_angle = config["watermarkAngle"]
+    angle = math.radians(watermark_angle)
 
     # show_pdf_page fits the *rotated* source into the target rectangle. Using
     # the unrotated aspect ratio here makes long text shrink to sub-pixel size.
-    # The exact rotated bounds preserve the 28-point tile at its natural scale.
+    # The exact rotated bounds preserve the configured tile at its natural scale.
     target_width = natural.width * abs(math.cos(angle)) + natural.height * abs(math.sin(angle))
     target_height = natural.width * abs(math.sin(angle)) + natural.height * abs(math.cos(angle))
-    step_x = max(145.0, target_width + 48.0)
-    step_y = 78.0
+    step_x = max(
+        float(config["watermarkMinimumHorizontalInterval"]),
+        target_width + config["watermarkHorizontalGap"],
+    )
+    step_y = float(config["watermarkVerticalInterval"])
 
     row = 0
     y = -target_height + step_y
@@ -140,7 +198,7 @@ def add_staggered_watermarks(page: pymupdf.Page, tile: pymupdf.Document) -> None
                 rect,
                 tile,
                 pno=0,
-                rotate=WATERMARK_ANGLE,
+                rotate=watermark_angle,
                 keep_proportion=True,
                 overlay=True,
             )
@@ -171,7 +229,7 @@ def rasterize(input_path: Path, output_path: Path, config: dict[str, Any]) -> No
                 f"The PDF has {page_count} pages; the configured limit is {config['maxPages']}.",
             )
 
-        tile = make_watermark_tile(config["text"])
+        tile = make_watermark_tile(config["text"], config)
         output = pymupdf.open()
         try:
             for source_page in source:
@@ -215,7 +273,7 @@ def rasterize(input_path: Path, output_path: Path, config: dict[str, Any]) -> No
                         keep_proportion=False,
                         overlay=True,
                     )
-                    add_staggered_watermarks(scratch_page, tile)
+                    add_staggered_watermarks(scratch_page, tile, config)
                     marked_pixmap = scratch_page.get_pixmap(
                         dpi=config["dpi"],
                         colorspace=pymupdf.csRGB,

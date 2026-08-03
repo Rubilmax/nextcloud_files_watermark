@@ -20,18 +20,25 @@ def run_renderer(
     text: str = "CONFIDENTIAL – 東京",
     dpi: int = 120,
     max_pages: int = 20,
+    appearance: dict[str, object] | None = None,
 ) -> subprocess.CompletedProcess[str]:
+    config: dict[str, object] = {
+        "text": text,
+        "dpi": dpi,
+        "maxPages": max_pages,
+        "jpegQuality": 88,
+        "watermarkFontSize": 28,
+        "watermarkColor": "#333333",
+        "watermarkOpacityPercent": 30,
+        "watermarkAngle": 30,
+        "watermarkMinimumHorizontalInterval": 145,
+        "watermarkHorizontalGap": 48,
+        "watermarkVerticalInterval": 78,
+    }
+    config.update(appearance or {})
     return subprocess.run(
         [sys.executable, str(SCRIPT), str(source), str(output)],
-        input=json.dumps(
-            {
-                "text": text,
-                "dpi": dpi,
-                "maxPages": max_pages,
-                "jpegQuality": 88,
-            },
-            ensure_ascii=False,
-        ),
+        input=json.dumps(config, ensure_ascii=False),
         text=True,
         capture_output=True,
         check=False,
@@ -110,6 +117,61 @@ def test_unicode_and_long_watermark_produces_visible_tiling(tmp_path: Path) -> N
         samples = pixmap.samples
         dark_pixels = sum(value < 245 for value in samples)
         assert dark_pixels > len(samples) * 0.002
+
+
+def test_applies_configured_watermark_appearance(tmp_path: Path) -> None:
+    source = tmp_path / "blank.pdf"
+    output = tmp_path / "red-watermark.pdf"
+    document = pymupdf.open()
+    document.new_page(width=400, height=300)
+    document.save(source)
+    document.close()
+
+    result = run_renderer(
+        source,
+        output,
+        text="CUSTOM",
+        dpi=96,
+        appearance={
+            "watermarkFontSize": 60,
+            "watermarkColor": "#ff0000",
+            "watermarkOpacityPercent": 100,
+            "watermarkAngle": 0,
+            "watermarkMinimumHorizontalInterval": 100,
+            "watermarkHorizontalGap": 0,
+            "watermarkVerticalInterval": 80,
+        },
+    )
+    assert result.returncode == 0, result.stderr
+
+    with pymupdf.open(output) as marked:
+        pixmap = marked[0].get_pixmap(dpi=48, colorspace=pymupdf.csRGB)
+        pixels = zip(pixmap.samples[0::3], pixmap.samples[1::3], pixmap.samples[2::3])
+        assert sum(red > green + 40 and red > blue + 40 for red, green, blue in pixels) > 100
+
+
+def test_rejects_invalid_watermark_appearance(tmp_path: Path) -> None:
+    source = tmp_path / "blank.pdf"
+    document = pymupdf.open()
+    document.new_page()
+    document.save(source)
+    document.close()
+
+    invalid_values = {
+        "watermarkFontSize": 7,
+        "watermarkColor": "red",
+        "watermarkOpacityPercent": 0,
+        "watermarkAngle": 181,
+        "watermarkMinimumHorizontalInterval": 19,
+        "watermarkHorizontalGap": -1,
+        "watermarkVerticalInterval": 2001,
+    }
+    for key, value in invalid_values.items():
+        output = tmp_path / f"invalid-{key}.pdf"
+        result = run_renderer(source, output, appearance={key: value})
+        assert result.returncode == 13
+        assert json.loads(result.stderr)["code"].startswith("invalid_")
+        assert not output.exists()
 
 
 def test_rejects_page_limit(tmp_path: Path) -> None:

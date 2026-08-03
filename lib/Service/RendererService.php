@@ -39,6 +39,13 @@ final class RendererService {
 				'dpi' => $this->config->getRasterDpi(),
 				'maxPages' => $this->config->getMaximumPages(),
 				'jpegQuality' => 88,
+				'watermarkFontSize' => $this->config->getWatermarkFontSize(),
+				'watermarkColor' => $this->config->getWatermarkColor(),
+				'watermarkOpacityPercent' => $this->config->getWatermarkOpacityPercent(),
+				'watermarkAngle' => $this->config->getWatermarkAngleDegrees(),
+				'watermarkMinimumHorizontalInterval' => $this->config->getWatermarkMinimumHorizontalInterval(),
+				'watermarkHorizontalGap' => $this->config->getWatermarkHorizontalGap(),
+				'watermarkVerticalInterval' => $this->config->getWatermarkVerticalInterval(),
 			], JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE);
 			$result = $this->processRunner->run(
 				[

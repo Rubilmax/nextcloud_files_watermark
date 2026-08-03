@@ -123,6 +123,13 @@ The renderer is now part of the immutable image rather than container state. Doc
 | --- | ---: | ---: |
 | Python executable | `/opt/files-watermark-python/bin/python` | non-empty executable name or path |
 | Raster DPI | 180 | 96–300 |
+| Watermark font size | 28 pt | 8–144 pt |
+| Watermark color | `#333333` | six-digit hexadecimal RGB color |
+| Watermark opacity | 30% | 1–100% |
+| Watermark angle | 30° | -180–180° |
+| Minimum horizontal interval | 145 pt | 20–2000 pt |
+| Horizontal gap | 48 pt | 0–1000 pt |
+| Vertical interval | 78 pt | 20–2000 pt |
 | Maximum source size | 50 MiB | 1–1024 MiB |
 | Maximum pages | 200 | 1–5000 |
 | Timeout | 120 seconds | 10–3600 seconds |
@@ -133,7 +140,7 @@ Invalid stored values are reported by the setup check and clamped to safe defaul
 
 1. The authenticated OCS endpoint verifies that the current user-visible path and file ID still refer to the same readable PDF and that its parent accepts new files.
 2. The source is streamed through Nextcloud's Node API into `ITempManager` storage. No data-directory path is accessed, so remote/object storage and transparent server-side encryption remain supported.
-3. PyMuPDF renders the original page and annotations, adds dense staggered Unicode watermark tiles at about 20% opacity and 30°, then rebuilds the page from a quality-88 RGB JPEG at the configured DPI.
+3. PyMuPDF renders the original page and annotations, adds configurable staggered Unicode watermark tiles (30% opacity and 30° by default), then rebuilds the page from a quality-88 RGB JPEG at the configured DPI.
 4. The result is streamed back through the Node API as `<original> - <watermark>.pdf`; invalid filename characters, the 240-byte UTF-8 limit, and collisions are handled before creation.
 5. The browser creates an ordinary `shareType=3` link through Nextcloud's OCS Share API, so core password, expiration, permission, and policy checks remain authoritative.
 

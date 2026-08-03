@@ -82,6 +82,38 @@ final class RendererServiceTest extends TestCase {
 		}
 	}
 
+	public function testPassesWatermarkAppearanceConfigurationToRenderer(): void {
+		$runner = new FakeProcessRunner(new ProcessResult(0, '', ''));
+		$runner->createOutput = true;
+		$output = tempnam(sys_get_temp_dir(), 'watermark-renderer-test-');
+		self::assertNotFalse($output);
+
+		try {
+			$renderer = new RendererService($this->createConfig(), $runner);
+			$renderer->render('/input.pdf', $output, 'Confidential');
+			$input = json_decode($runner->lastInput, true, flags: JSON_THROW_ON_ERROR);
+
+			self::assertSame(ConfigService::DEFAULT_WATERMARK_FONT_SIZE, $input['watermarkFontSize']);
+			self::assertSame(ConfigService::DEFAULT_WATERMARK_COLOR, $input['watermarkColor']);
+			self::assertSame(ConfigService::DEFAULT_WATERMARK_OPACITY, $input['watermarkOpacityPercent']);
+			self::assertSame(ConfigService::DEFAULT_WATERMARK_ANGLE, $input['watermarkAngle']);
+			self::assertSame(
+				ConfigService::DEFAULT_WATERMARK_MIN_HORIZONTAL_INTERVAL,
+				$input['watermarkMinimumHorizontalInterval'],
+			);
+			self::assertSame(
+				ConfigService::DEFAULT_WATERMARK_HORIZONTAL_GAP,
+				$input['watermarkHorizontalGap'],
+			);
+			self::assertSame(
+				ConfigService::DEFAULT_WATERMARK_VERTICAL_INTERVAL,
+				$input['watermarkVerticalInterval'],
+			);
+		} finally {
+			@unlink($output);
+		}
+	}
+
 	public function testAvailabilityChecksPinnedVersionRange(): void {
 		$runner = new FakeProcessRunner(new ProcessResult(0, "1.28.0\n", ''));
 		$status = (new RendererService($this->createConfig(), $runner))->checkAvailability();
@@ -107,15 +139,21 @@ final class RendererServiceTest extends TestCase {
 final class FakeProcessRunner extends ProcessRunner {
 	/** @var list<string> */
 	public array $lastCommand = [];
+	public string $lastInput = '';
 	public bool $timeout = false;
+	public bool $createOutput = false;
 
 	public function __construct(private readonly ProcessResult $result) {
 	}
 
 	public function run(array $command, string $stdin, int $timeoutSeconds): ProcessResult {
 		$this->lastCommand = $command;
+		$this->lastInput = $stdin;
 		if ($this->timeout) {
 			throw new ProcessTimeoutException('timeout');
+		}
+		if ($this->createOutput) {
+			file_put_contents($command[3], '%PDF-rendered');
 		}
 		return $this->result;
 	}

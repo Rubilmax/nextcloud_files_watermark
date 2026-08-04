@@ -101,9 +101,8 @@
     "The watermarked PDF could not be saved beside the source.": "Impossibile salvare il PDF con filigrana accanto al file sorgente.",
     "The watermarked PDF could not be generated.": "Impossibile generare il PDF con filigrana.",
     "Rendering watermark preview…": "Rendering dell’anteprima della filigrana…",
-    "Enter valid appearance settings to update the preview.": "Inserisci impostazioni di aspetto valide per aggiornare l’anteprima.",
     "Watermark preview": "Anteprima della filigrana",
-    "This sample PDF uses the appearance settings above and refreshes as you edit them.": "Questo PDF di esempio usa le impostazioni di aspetto sopra indicate e si aggiorna durante la modifica.",
+    "This sample PDF uses the appearance settings above and refreshes after Nextcloud saves each edit automatically.": "Questo PDF di esempio usa le impostazioni di aspetto sopra indicate e si aggiorna dopo che Nextcloud salva automaticamente ogni modifica.",
     "Watermarked PDF preview": "Anteprima del PDF con filigrana",
     "Open PDF preview": "Apri anteprima PDF"
   },

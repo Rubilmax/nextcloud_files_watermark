@@ -59,19 +59,23 @@
 }
 
 @media (width >= 768px) {
-	#files_watermark_files_watermark_renderer .settings-section {
+	#files_watermark_renderer .settings-section,
+	.declarative-settings-section:has(+ .files-watermark-admin-preview) {
 		display: grid;
 		grid-template-columns: repeat(2, minmax(0, 1fr));
 		column-gap: 16px;
 		align-items: start;
 	}
 
-	#files_watermark_files_watermark_renderer .settings-section__name,
-	#files_watermark_files_watermark_renderer .settings-section__desc {
+	#files_watermark_renderer .settings-section__name,
+	#files_watermark_renderer .settings-section__desc,
+	.declarative-settings-section:has(+ .files-watermark-admin-preview) .settings-section__name,
+	.declarative-settings-section:has(+ .files-watermark-admin-preview) .settings-section__desc {
 		grid-column: 1 / -1;
 	}
 
-	#files_watermark_files_watermark_renderer .declarative-form-field {
+	#files_watermark_renderer .declarative-form-field,
+	.declarative-settings-section:has(+ .files-watermark-admin-preview) .declarative-form-field {
 		min-width: 0;
 	}
 }

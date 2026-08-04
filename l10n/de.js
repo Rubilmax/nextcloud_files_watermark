@@ -102,9 +102,8 @@ OC.L10N.register(
 	  "The watermarked PDF could not be saved beside the source.": "Die PDF-Datei mit Wasserzeichen konnte nicht neben der Quelle gespeichert werden.",
 	  "The watermarked PDF could not be generated.": "Die PDF-Datei mit Wasserzeichen konnte nicht erzeugt werden.",
 	  "Rendering watermark preview…": "Wasserzeichenvorschau wird gerendert…",
-	  "Enter valid appearance settings to update the preview.": "Geben Sie gültige Darstellungseinstellungen ein, um die Vorschau zu aktualisieren.",
 	  "Watermark preview": "Wasserzeichenvorschau",
-	  "This sample PDF uses the appearance settings above and refreshes as you edit them.": "Diese Beispiel-PDF verwendet die obigen Darstellungseinstellungen und wird beim Bearbeiten aktualisiert.",
+	  "This sample PDF uses the appearance settings above and refreshes after Nextcloud saves each edit automatically.": "Diese Beispiel-PDF verwendet die obigen Darstellungseinstellungen und wird aktualisiert, nachdem Nextcloud jede Änderung automatisch gespeichert hat.",
 	  "Watermarked PDF preview": "Vorschau der PDF mit Wasserzeichen",
 	  "Open PDF preview": "PDF-Vorschau öffnen"
 	},

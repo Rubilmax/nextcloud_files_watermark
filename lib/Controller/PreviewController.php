@@ -14,6 +14,7 @@ use OCA\FilesWatermark\Exception\WatermarkException;
 use OCA\FilesWatermark\Service\PreviewService;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
+use OCP\AppFramework\Http\Attribute\NoCSRFRequired;
 use OCP\AppFramework\Http\Attribute\UserRateLimit;
 use OCP\AppFramework\Http\DataDisplayResponse;
 use OCP\IRequest;
@@ -29,6 +30,7 @@ final class PreviewController extends Controller {
 	}
 
 	/** @return DataDisplayResponse<Http::STATUS_*, array<string, string>> */
+	#[NoCSRFRequired]
 	#[UserRateLimit(limit: 60, period: 60)]
 	public function show(
 		?int $fontSize = null,

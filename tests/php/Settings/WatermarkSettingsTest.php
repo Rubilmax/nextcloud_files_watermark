@@ -20,6 +20,7 @@ final class WatermarkSettingsTest extends TestCase {
 		$l10n = $this->createStub(IL10N::class);
 		$l10n->method('t')->willReturnCallback(static fn (string $text): string => $text);
 		$schema = (new WatermarkSettings($l10n))->getSchema();
+		self::assertSame('renderer', $schema['id']);
 		$fields = [];
 		foreach ($schema['fields'] as $field) {
 			$fields[$field['id']] = $field;

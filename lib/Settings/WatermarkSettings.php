@@ -23,7 +23,10 @@ final class WatermarkSettings implements IDeclarativeSettingsForm {
 	/** @return array<string, mixed> */
 	public function getSchema(): array {
 		return [
-			'id' => 'files_watermark_renderer',
+			// Nextcloud prefixes this ID in the DOM and removes that prefix again
+			// before saving. Keeping the app ID out of the form ID prevents core
+			// from stripping part of the registered ID.
+			'id' => 'renderer',
 			'priority' => 10,
 			'section_type' => DeclarativeSettingsTypes::SECTION_TYPE_ADMIN,
 			'section_id' => 'files_watermark',

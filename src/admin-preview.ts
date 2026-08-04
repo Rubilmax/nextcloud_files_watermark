@@ -5,48 +5,15 @@
 
 import './admin-preview.scss'
 
-interface PreviewField {
-	index: number
-	parameter: string
-	isValid: (value: string) => boolean
-}
-
-const SETTINGS_FORM_ID = 'files_watermark_files_watermark_renderer'
 const PREVIEW_ROOT_ID = 'files-watermark-admin-preview'
-const REFRESH_DELAY_MS = 450
+// Core declarative text fields save after a 1 second debounce. Refresh from
+// the server after that save instead of duplicating core's form state here.
+const SAVE_SETTLE_DELAY_MS = 1800
 
-/**
- * Build a validator for integer-valued settings.
- *
- * @param minimum Inclusive lower bound
- * @param maximum Inclusive upper bound
- */
-function integerInRange(minimum: number, maximum: number): (value: string) => boolean {
-	return (value: string): boolean => {
-		if (!/^-?\d+$/.test(value)) {
-			return false
-		}
-
-		const parsed = Number(value)
-		return Number.isSafeInteger(parsed) && parsed >= minimum && parsed <= maximum
-	}
-}
-
-const PREVIEW_FIELDS: PreviewField[] = [
-	{ index: 2, parameter: 'fontSize', isValid: integerInRange(8, 144) },
-	{ index: 3, parameter: 'color', isValid: (value) => /^#[0-9a-f]{6}$/i.test(value) },
-	{ index: 4, parameter: 'opacity', isValid: integerInRange(1, 100) },
-	{ index: 5, parameter: 'angle', isValid: integerInRange(-180, 180) },
-	{ index: 6, parameter: 'minimumHorizontalInterval', isValid: integerInRange(20, 2000) },
-	{ index: 7, parameter: 'horizontalGap', isValid: integerInRange(0, 1000) },
-	{ index: 8, parameter: 'verticalInterval', isValid: integerInRange(20, 2000) },
-]
-
-/** Connect the preview to the declarative appearance inputs. */
+/** Refresh the preview after Nextcloud's declarative settings autosave. */
 function initializePreview(): void {
 	const root = document.getElementById(PREVIEW_ROOT_ID)
-	const form = document.getElementById(SETTINGS_FORM_ID)
-	if (!(root instanceof HTMLElement) || !(form instanceof HTMLElement)) {
+	if (!(root instanceof HTMLElement)) {
 		return
 	}
 
@@ -62,20 +29,7 @@ function initializePreview(): void {
 	let refreshTimer: ReturnType<typeof setTimeout> | undefined
 
 	const refresh = (): void => {
-		const fields = form.querySelectorAll<HTMLElement>('.declarative-form-field')
 		const url = new URL(previewUrl, window.location.href)
-
-		for (const field of PREVIEW_FIELDS) {
-			const input = fields[field.index]?.querySelector<HTMLInputElement>('input')
-			const value = input?.value.trim() ?? ''
-			if (!field.isValid(value)) {
-				status.textContent = root.dataset.invalidText ?? ''
-				documentContainer.setAttribute('aria-busy', 'false')
-				return
-			}
-			url.searchParams.set(field.parameter, value)
-		}
-
 		url.searchParams.set('_', Date.now().toString())
 		const imageUrl = new URL(url)
 		imageUrl.searchParams.set('format', 'image')
@@ -87,7 +41,9 @@ function initializePreview(): void {
 
 	const scheduleRefresh = (): void => {
 		clearTimeout(refreshTimer)
-		refreshTimer = setTimeout(refresh, REFRESH_DELAY_MS)
+		status.textContent = root.dataset.loadingText ?? ''
+		documentContainer.setAttribute('aria-busy', 'true')
+		refreshTimer = setTimeout(refresh, SAVE_SETTLE_DELAY_MS)
 	}
 
 	const showLoadedPreview = (): void => {
@@ -109,32 +65,23 @@ function initializePreview(): void {
 			showPreviewError()
 		}
 	}
-	form.addEventListener('input', scheduleRefresh)
-	form.addEventListener('change', scheduleRefresh)
-
-	const observer = new MutationObserver(scheduleRefresh)
-	observer.observe(form, { childList: true, subtree: true })
-	scheduleRefresh()
-}
-
-/** Wait for Nextcloud's settings frame before initializing the preview. */
-function initializeWhenReady(): void {
-	if (document.getElementById(SETTINGS_FORM_ID)) {
-		initializePreview()
-		return
-	}
-
-	const observer = new MutationObserver(() => {
-		if (document.getElementById(SETTINGS_FORM_ID)) {
-			observer.disconnect()
-			initializePreview()
+	// Delegate from the shared settings container. Nextcloud replaces the
+	// declarative form's mount element when Vue starts, so binding to that
+	// temporary element loses the listeners and can read empty default fields.
+	const settingsContainer = root.parentElement
+	if (settingsContainer) {
+		const handleSettingEvent = (event: Event): void => {
+			if (event.target instanceof HTMLInputElement && !root.contains(event.target)) {
+				scheduleRefresh()
+			}
 		}
-	})
-	observer.observe(document.body, { childList: true, subtree: true })
+		settingsContainer.addEventListener('input', handleSettingEvent)
+		settingsContainer.addEventListener('change', handleSettingEvent)
+	}
 }
 
 if (document.readyState === 'loading') {
-	document.addEventListener('DOMContentLoaded', initializeWhenReady, { once: true })
+	document.addEventListener('DOMContentLoaded', initializePreview, { once: true })
 } else {
-	initializeWhenReady()
+	initializePreview()
 }

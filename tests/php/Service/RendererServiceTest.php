@@ -206,6 +206,21 @@ final class RendererServiceTest extends TestCase {
 		self::assertCount(3, $runner->lastCommand);
 	}
 
+	public function testAvailabilityReportsTheMissingRendererDependency(): void {
+		$runner = new FakeProcessRunner(new ProcessResult(
+			1,
+			'{"error":"ModuleNotFoundError: No module named \'numpy\'"}',
+			'',
+		));
+		$status = (new RendererService($this->createConfig(), $runner))->checkAvailability();
+
+		self::assertFalse($status['available']);
+		self::assertSame(
+			"Configured Python cannot import the renderer dependencies: ModuleNotFoundError: No module named 'numpy'",
+			$status['message'],
+		);
+	}
+
 	public function testRejectsInvalidRandomSeedBeforeStartingRenderer(): void {
 		$runner = new FakeProcessRunner(new ProcessResult(0, '', ''));
 		$renderer = new RendererService($this->createConfig(), $runner);

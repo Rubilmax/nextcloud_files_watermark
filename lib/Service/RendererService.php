@@ -233,9 +233,15 @@ final class RendererService {
 			$probe = <<<'PYTHON'
 import json
 
-import numpy
-import pymupdf
-from PIL import __version__ as pillow_version
+try:
+    import numpy
+    import pymupdf
+    from PIL import __version__ as pillow_version
+except Exception as exception:
+    print(json.dumps({
+        "error": f"{type(exception).__name__}: {exception}",
+    }, separators=(",", ":")))
+    raise SystemExit(1)
 
 status = {
     "pymupdf": pymupdf.__version__,
@@ -262,9 +268,14 @@ PYTHON;
 			? $status['pymupdf']
 			: '';
 		if ($result->exitCode !== 0 || $version === '') {
+			$error = is_array($status) && isset($status['error']) && is_string($status['error'])
+				? trim($status['error'])
+				: '';
 			return [
 				'available' => false,
-				'message' => 'Configured Python cannot import the renderer dependencies.',
+				'message' => $error === ''
+					? 'Configured Python cannot import the renderer dependencies.'
+					: sprintf('Configured Python cannot import the renderer dependencies: %s', $error),
 			];
 		}
 

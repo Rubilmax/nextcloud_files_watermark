@@ -10,23 +10,32 @@ declare(strict_types=1);
 namespace OCA\FilesWatermark\Settings;
 
 use OCA\FilesWatermark\AppInfo\Application;
+use OCA\FilesWatermark\Service\ConfigService;
 use OCP\AppFramework\Http\TemplateResponse;
+use OCP\AppFramework\Services\IInitialState;
+use OCP\IL10N;
 use OCP\IURLGenerator;
-use OCP\Settings\ISettings;
+use OCP\Settings\IDelegatedSettings;
 
-final class AdminPreview implements ISettings {
+final class AdminSettings implements IDelegatedSettings {
 	public function __construct(
+		private readonly ConfigService $config,
+		private readonly IInitialState $initialState,
 		private readonly IURLGenerator $urlGenerator,
+		private readonly IL10N $l10n,
 	) {
 	}
 
 	/** @return TemplateResponse<\OCP\AppFramework\Http::STATUS_OK, array{}> */
 	public function getForm(): TemplateResponse {
 		$route = Application::APP_ID . '.preview.show';
-		return new TemplateResponse(Application::APP_ID, 'admin-preview', [
+		$this->initialState->provideInitialState('admin-settings', [
+			'settings' => $this->config->getAdminSettings(),
 			'previewUrl' => $this->urlGenerator->linkToRoute($route),
 			'previewImageUrl' => $this->urlGenerator->linkToRoute($route, ['format' => 'image']),
-		], '');
+		]);
+
+		return new TemplateResponse(Application::APP_ID, 'admin-settings', [], '');
 	}
 
 	public function getSection(): string {
@@ -34,6 +43,16 @@ final class AdminPreview implements ISettings {
 	}
 
 	public function getPriority(): int {
-		return 20;
+		return 10;
+	}
+
+	public function getName(): string {
+		return $this->l10n->t('Watermark settings');
+	}
+
+	/** @return array{} */
+	public function getAuthorizedAppConfig(): array {
+		// The controller validates and persists each supported key explicitly.
+		return [];
 	}
 }

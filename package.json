@@ -1,6 +1,6 @@
 {
 	"name": "files_watermark",
-	"version": "0.1.2",
+	"version": "0.1.3",
 	"private": true,
 	"license": "AGPL-3.0-or-later",
 	"scripts": {
@@ -16,6 +16,7 @@
 		"@nextcloud/dialogs": "^7.4.0",
 		"@nextcloud/event-bus": "^3.3.3",
 		"@nextcloud/files": "^4.0.0",
+		"@nextcloud/initial-state": "^3.0.0",
 		"@nextcloud/l10n": "^3.4.1",
 		"@nextcloud/router": "^3.1.0",
 		"@nextcloud/sharing": "^0.4.0",

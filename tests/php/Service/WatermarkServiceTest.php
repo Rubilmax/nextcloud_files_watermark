@@ -22,7 +22,7 @@ use OCP\Files\File;
 use OCP\Files\Folder;
 use OCP\Files\IFilenameValidator;
 use OCP\Files\IRootFolder;
-use OCP\IConfig;
+use OCP\AppFramework\Services\IAppConfig;
 use OCP\ITempManager;
 use OCP\IUser;
 use OCP\IUserSession;
@@ -219,9 +219,9 @@ final class WatermarkServiceTest extends TestCase {
 		?ITempManager $tempManager = null,
 		int $maximumSourceSizeMiB = 50,
 	): WatermarkService {
-		$config = $this->createMock(IConfig::class);
-		$config->method('getAppValue')->willReturnCallback(
-			static fn (string $app, string $key, string $default): string => $key === ConfigService::KEY_MAX_SOURCE_MIB
+		$config = $this->createMock(IAppConfig::class);
+		$config->method('getAppValueString')->willReturnCallback(
+			static fn (string $key, string $default): string => $key === ConfigService::KEY_MAX_SOURCE_MIB
 				? (string)$maximumSourceSizeMiB
 				: $default,
 		);

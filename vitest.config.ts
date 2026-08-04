@@ -12,5 +12,10 @@ export default defineConfig({
 		environment: 'jsdom',
 		include: ['tests/frontend/**/*.spec.ts'],
 		setupFiles: ['tests/frontend/setup.ts'],
+		server: {
+			deps: {
+				inline: ['@nextcloud/vue'],
+			},
+		},
 	},
 })

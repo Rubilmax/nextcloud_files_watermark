@@ -17,7 +17,7 @@ use OCA\FilesWatermark\Service\ProcessResult;
 use OCA\FilesWatermark\Service\ProcessRunner;
 use OCA\FilesWatermark\Service\RendererService;
 use OCP\AppFramework\Http;
-use OCP\IConfig;
+use OCP\AppFramework\Services\IAppConfig;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
@@ -193,9 +193,9 @@ final class RendererServiceTest extends TestCase {
 	}
 
 	private function createConfig(): ConfigService {
-		$config = $this->createMock(IConfig::class);
-		$config->method('getAppValue')->willReturnCallback(
-			static fn (string $app, string $key, string $default): string => $default,
+		$config = $this->createMock(IAppConfig::class);
+		$config->method('getAppValueString')->willReturnCallback(
+			static fn (string $key, string $default): string => $default,
 		);
 		return new ConfigService($config, $this->createStub(LoggerInterface::class));
 	}

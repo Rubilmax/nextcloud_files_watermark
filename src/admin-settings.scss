@@ -3,12 +3,20 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-.files-watermark-admin-preview {
+.files-watermark-admin-settings {
 	max-width: 900px;
+
+	&__fields {
+		display: grid;
+		grid-template-columns: minmax(0, 1fr);
+		gap: 12px 16px;
+		max-width: 816px;
+	}
 
 	&__document {
 		position: relative;
 		width: 100%;
+		max-width: 816px;
 		margin-top: 16px;
 		overflow: hidden;
 		border: 1px solid var(--color-border);
@@ -33,49 +41,23 @@
 		height: auto;
 		background: white;
 		box-shadow: 0 1px 5px rgb(0 0 0 / 18%);
-
-		&[hidden] {
-			display: none;
-		}
 	}
 
-	&__footer {
+	&__preview-footer {
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
 		width: 100%;
+		max-width: 816px;
 		min-height: 36px;
 		gap: 16px;
 		padding-top: 8px;
-	}
-
-	&__status {
 		color: var(--color-text-maxcontrast);
-	}
-
-	&__open:not([href]) {
-		display: none;
 	}
 }
 
 @media (width >= 768px) {
-	#files_watermark_renderer .settings-section,
-	.declarative-settings-section:has(+ .files-watermark-admin-preview) {
-		display: grid;
+	.files-watermark-admin-settings__fields {
 		grid-template-columns: repeat(2, minmax(0, 1fr));
-		column-gap: 16px;
-		align-items: start;
-	}
-
-	#files_watermark_renderer .settings-section__name,
-	#files_watermark_renderer .settings-section__desc,
-	.declarative-settings-section:has(+ .files-watermark-admin-preview) .settings-section__name,
-	.declarative-settings-section:has(+ .files-watermark-admin-preview) .settings-section__desc {
-		grid-column: 1 / -1;
-	}
-
-	#files_watermark_renderer .declarative-form-field,
-	.declarative-settings-section:has(+ .files-watermark-admin-preview) .declarative-form-field {
-		min-width: 0;
 	}
 }

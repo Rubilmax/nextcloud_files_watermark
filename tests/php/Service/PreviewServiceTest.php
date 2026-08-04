@@ -15,7 +15,7 @@ use OCA\FilesWatermark\Service\PreviewService;
 use OCA\FilesWatermark\Service\ProcessResult;
 use OCA\FilesWatermark\Service\ProcessRunner;
 use OCA\FilesWatermark\Service\RendererService;
-use OCP\IConfig;
+use OCP\AppFramework\Services\IAppConfig;
 use OCP\ITempManager;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
@@ -38,9 +38,9 @@ final class PreviewServiceTest extends TestCase {
 				return $path;
 			});
 
-		$config = $this->createMock(IConfig::class);
-		$config->method('getAppValue')->willReturnCallback(
-			static fn (string $app, string $key, string $default): string => $default,
+		$config = $this->createMock(IAppConfig::class);
+		$config->method('getAppValueString')->willReturnCallback(
+			static fn (string $key, string $default): string => $default,
 		);
 		$runner = new PreviewProcessRunner();
 		$renderer = new RendererService(

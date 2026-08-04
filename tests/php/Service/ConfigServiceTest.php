@@ -10,7 +10,7 @@ declare(strict_types=1);
 namespace OCA\FilesWatermark\Tests\Service;
 
 use OCA\FilesWatermark\Service\ConfigService;
-use OCP\IConfig;
+use OCP\AppFramework\Services\IAppConfig;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
@@ -18,9 +18,9 @@ use Psr\Log\LoggerInterface;
 #[AllowMockObjectsWithoutExpectations]
 final class ConfigServiceTest extends TestCase {
 	public function testClampsInvalidValuesToSafeDefaultsAndLogsWarningsOnce(): void {
-		$config = $this->createMock(IConfig::class);
-		$config->method('getAppValue')->willReturnCallback(
-			static fn (string $app, string $key, string $default): string => match ($key) {
+		$config = $this->createMock(IAppConfig::class);
+		$config->method('getAppValueString')->willReturnCallback(
+			static fn (string $key, string $default): string => match ($key) {
 				ConfigService::KEY_PYTHON => '',
 				ConfigService::KEY_DPI => '301',
 				ConfigService::KEY_MAX_SOURCE_MIB => 'zero',
@@ -61,9 +61,9 @@ final class ConfigServiceTest extends TestCase {
 	}
 
 	public function testAcceptsInclusiveConfigurationBounds(): void {
-		$config = $this->createMock(IConfig::class);
-		$config->method('getAppValue')->willReturnCallback(
-			static fn (string $app, string $key, string $default): string => match ($key) {
+		$config = $this->createMock(IAppConfig::class);
+		$config->method('getAppValueString')->willReturnCallback(
+			static fn (string $key, string $default): string => match ($key) {
 				ConfigService::KEY_PYTHON => '/opt/python/bin/python3',
 				ConfigService::KEY_DPI => '96',
 				ConfigService::KEY_MAX_SOURCE_MIB => '1024',
@@ -94,5 +94,36 @@ final class ConfigServiceTest extends TestCase {
 		self::assertSame(0, $service->getWatermarkHorizontalGap());
 		self::assertSame(2000, $service->getWatermarkVerticalInterval());
 		self::assertSame([], $service->getValidationErrors());
+	}
+
+	public function testNormalizesAndPersistsAdminSettings(): void {
+		$config = $this->createMock(IAppConfig::class);
+		$writes = [];
+		$config->expects(self::exactly(3))
+			->method('setAppValueString')
+			->willReturnCallback(static function (string $key, string $value) use (&$writes): bool {
+				$writes[$key] = $value;
+				return true;
+			});
+		$service = new ConfigService($config, $this->createStub(LoggerInterface::class));
+
+		self::assertSame('96', $service->setAdminSetting(ConfigService::KEY_DPI, '096'));
+		self::assertSame('#a1b2c3', $service->setAdminSetting(ConfigService::KEY_WATERMARK_COLOR, ' #A1B2C3 '));
+		self::assertSame('/usr/bin/python3', $service->setAdminSetting(ConfigService::KEY_PYTHON, ' /usr/bin/python3 '));
+		self::assertSame([
+			ConfigService::KEY_DPI => '96',
+			ConfigService::KEY_WATERMARK_COLOR => '#a1b2c3',
+			ConfigService::KEY_PYTHON => '/usr/bin/python3',
+		], $writes);
+	}
+
+	public function testRejectsInvalidAdminSetting(): void {
+		$config = $this->createMock(IAppConfig::class);
+		$config->expects(self::never())->method('setAppValueString');
+		$service = new ConfigService($config, $this->createStub(LoggerInterface::class));
+
+		$this->expectException(\InvalidArgumentException::class);
+		$this->expectExceptionMessage('watermark_opacity_percent must be an integer from 1 to 100.');
+		$service->setAdminSetting(ConfigService::KEY_WATERMARK_OPACITY, '101');
 	}
 }

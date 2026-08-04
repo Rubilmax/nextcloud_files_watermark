@@ -8,7 +8,9 @@ $baseDir = dirname($vendorDir);
 return array(
     'Composer\\InstalledVersions' => $vendorDir . '/composer/InstalledVersions.php',
     'OCA\\FilesWatermark\\AppInfo\\Application' => $baseDir . '/lib/AppInfo/Application.php',
+    'OCA\\FilesWatermark\\ConfigLexicon' => $baseDir . '/lib/ConfigLexicon.php',
     'OCA\\FilesWatermark\\Controller\\PreviewController' => $baseDir . '/lib/Controller/PreviewController.php',
+    'OCA\\FilesWatermark\\Controller\\SettingsController' => $baseDir . '/lib/Controller/SettingsController.php',
     'OCA\\FilesWatermark\\Controller\\WatermarkController' => $baseDir . '/lib/Controller/WatermarkController.php',
     'OCA\\FilesWatermark\\Exception\\ProcessTimeoutException' => $baseDir . '/lib/Exception/ProcessTimeoutException.php',
     'OCA\\FilesWatermark\\Exception\\WatermarkException' => $baseDir . '/lib/Exception/WatermarkException.php',
@@ -23,8 +25,7 @@ return array(
     'OCA\\FilesWatermark\\Service\\RendererService' => $baseDir . '/lib/Service/RendererService.php',
     'OCA\\FilesWatermark\\Service\\TextNormalizer' => $baseDir . '/lib/Service/TextNormalizer.php',
     'OCA\\FilesWatermark\\Service\\WatermarkService' => $baseDir . '/lib/Service/WatermarkService.php',
-    'OCA\\FilesWatermark\\Settings\\AdminPreview' => $baseDir . '/lib/Settings/AdminPreview.php',
     'OCA\\FilesWatermark\\Settings\\AdminSection' => $baseDir . '/lib/Settings/AdminSection.php',
-    'OCA\\FilesWatermark\\Settings\\WatermarkSettings' => $baseDir . '/lib/Settings/WatermarkSettings.php',
+    'OCA\\FilesWatermark\\Settings\\AdminSettings' => $baseDir . '/lib/Settings/AdminSettings.php',
     'OCA\\FilesWatermark\\SetupChecks\\RendererSetupCheck' => $baseDir . '/lib/SetupChecks/RendererSetupCheck.php',
 );

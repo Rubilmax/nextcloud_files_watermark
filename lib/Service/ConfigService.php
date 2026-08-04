@@ -9,8 +9,9 @@ declare(strict_types=1);
 
 namespace OCA\FilesWatermark\Service;
 
+use InvalidArgumentException;
 use OCA\FilesWatermark\AppInfo\Application;
-use OCP\IConfig;
+use OCP\AppFramework\Services\IAppConfig;
 use Psr\Log\LoggerInterface;
 
 final class ConfigService {
@@ -40,18 +41,31 @@ final class ConfigService {
 	public const DEFAULT_WATERMARK_HORIZONTAL_GAP = 48;
 	public const DEFAULT_WATERMARK_VERTICAL_INTERVAL = 78;
 
+	/** @var array<string, array{int, int, int}> */
+	private const INTEGER_SETTINGS = [
+		self::KEY_DPI => [self::DEFAULT_DPI, 96, 300],
+		self::KEY_MAX_SOURCE_MIB => [self::DEFAULT_MAX_SOURCE_MIB, 1, 1024],
+		self::KEY_MAX_PAGES => [self::DEFAULT_MAX_PAGES, 1, 5000],
+		self::KEY_TIMEOUT => [self::DEFAULT_TIMEOUT, 10, 3600],
+		self::KEY_WATERMARK_FONT_SIZE => [self::DEFAULT_WATERMARK_FONT_SIZE, 8, 144],
+		self::KEY_WATERMARK_OPACITY => [self::DEFAULT_WATERMARK_OPACITY, 1, 100],
+		self::KEY_WATERMARK_ANGLE => [self::DEFAULT_WATERMARK_ANGLE, -180, 180],
+		self::KEY_WATERMARK_MIN_HORIZONTAL_INTERVAL => [self::DEFAULT_WATERMARK_MIN_HORIZONTAL_INTERVAL, 20, 2000],
+		self::KEY_WATERMARK_HORIZONTAL_GAP => [self::DEFAULT_WATERMARK_HORIZONTAL_GAP, 0, 1000],
+		self::KEY_WATERMARK_VERTICAL_INTERVAL => [self::DEFAULT_WATERMARK_VERTICAL_INTERVAL, 20, 2000],
+	];
+
 	/** @var array<string, true> */
 	private array $warnedKeys = [];
 
 	public function __construct(
-		private readonly IConfig $config,
+		private readonly IAppConfig $config,
 		private readonly LoggerInterface $logger,
 	) {
 	}
 
 	public function getPythonExecutable(): string {
-		$value = trim($this->config->getAppValue(
-			Application::APP_ID,
+		$value = trim($this->config->getAppValueString(
 			self::KEY_PYTHON,
 			self::DEFAULT_PYTHON,
 		));
@@ -109,8 +123,7 @@ final class ConfigService {
 	}
 
 	public function getWatermarkColor(): string {
-		$value = strtolower(trim($this->config->getAppValue(
-			Application::APP_ID,
+		$value = strtolower(trim($this->config->getAppValueString(
 			self::KEY_WATERMARK_COLOR,
 			self::DEFAULT_WATERMARK_COLOR,
 		)));
@@ -168,6 +181,58 @@ final class ConfigService {
 		);
 	}
 
+	/** @return array<string, string> */
+	public function getAdminSettings(): array {
+		return [
+			self::KEY_PYTHON => $this->getPythonExecutable(),
+			self::KEY_DPI => (string)$this->getRasterDpi(),
+			self::KEY_WATERMARK_FONT_SIZE => (string)$this->getWatermarkFontSize(),
+			self::KEY_WATERMARK_COLOR => $this->getWatermarkColor(),
+			self::KEY_WATERMARK_OPACITY => (string)$this->getWatermarkOpacityPercent(),
+			self::KEY_WATERMARK_ANGLE => (string)$this->getWatermarkAngleDegrees(),
+			self::KEY_WATERMARK_MIN_HORIZONTAL_INTERVAL => (string)$this->getWatermarkMinimumHorizontalInterval(),
+			self::KEY_WATERMARK_HORIZONTAL_GAP => (string)$this->getWatermarkHorizontalGap(),
+			self::KEY_WATERMARK_VERTICAL_INTERVAL => (string)$this->getWatermarkVerticalInterval(),
+			self::KEY_MAX_SOURCE_MIB => (string)$this->getMaximumSourceSizeMiB(),
+			self::KEY_MAX_PAGES => (string)$this->getMaximumPages(),
+			self::KEY_TIMEOUT => (string)$this->getTimeoutSeconds(),
+		];
+	}
+
+	/** Persist and return one normalized administration setting. */
+	public function setAdminSetting(string $key, mixed $value): string {
+		if ($key === self::KEY_PYTHON) {
+			if (!is_string($value)) {
+				throw new InvalidArgumentException('Python executable must be text.');
+			}
+			$normalized = trim($value);
+			if ($normalized === '' || str_contains($normalized, "\0")) {
+				throw new InvalidArgumentException('Python executable must not be empty.');
+			}
+		} elseif ($key === self::KEY_WATERMARK_COLOR) {
+			if (!is_string($value)) {
+				throw new InvalidArgumentException('Watermark color must be text.');
+			}
+			$normalized = strtolower(trim($value));
+			if (preg_match('/^#[0-9a-f]{6}$/', $normalized) !== 1) {
+				throw new InvalidArgumentException('Watermark color must be a six-digit hexadecimal color such as #333333.');
+			}
+		} elseif (isset(self::INTEGER_SETTINGS[$key])) {
+			[, $minimum, $maximum] = self::INTEGER_SETTINGS[$key];
+			$raw = is_int($value) ? (string)$value : (is_string($value) ? trim($value) : '');
+			$parsed = preg_match('/^-?\d+$/', $raw) === 1 ? (int)$raw : null;
+			if ($parsed === null || $parsed < $minimum || $parsed > $maximum) {
+				throw new InvalidArgumentException(sprintf('%s must be an integer from %d to %d.', $key, $minimum, $maximum));
+			}
+			$normalized = (string)$parsed;
+		} else {
+			throw new InvalidArgumentException('Unknown watermark setting.');
+		}
+
+		$this->config->setAppValueString($key, $normalized);
+		return $normalized;
+	}
+
 	/**
 	 * Validate raw stored values without silently accepting clamped defaults.
 	 *
@@ -175,16 +240,14 @@ final class ConfigService {
 	 */
 	public function getValidationErrors(): array {
 		$errors = [];
-		$python = trim($this->config->getAppValue(
-			Application::APP_ID,
+		$python = trim($this->config->getAppValueString(
 			self::KEY_PYTHON,
 			self::DEFAULT_PYTHON,
 		));
 		if ($python === '' || str_contains($python, "\0")) {
 			$errors[] = 'Python executable must not be empty.';
 		}
-		$color = trim($this->config->getAppValue(
-			Application::APP_ID,
+		$color = trim($this->config->getAppValueString(
 			self::KEY_WATERMARK_COLOR,
 			self::DEFAULT_WATERMARK_COLOR,
 		));
@@ -209,8 +272,7 @@ final class ConfigService {
 			[self::KEY_WATERMARK_HORIZONTAL_GAP, self::DEFAULT_WATERMARK_HORIZONTAL_GAP, 0, 1000],
 			[self::KEY_WATERMARK_VERTICAL_INTERVAL, self::DEFAULT_WATERMARK_VERTICAL_INTERVAL, 20, 2000],
 		] as [$key, $default, $minimum, $maximum]) {
-			$raw = $this->config->getAppValue(
-				Application::APP_ID,
+			$raw = $this->config->getAppValueString(
 				$key,
 				(string)$default,
 			);
@@ -224,8 +286,7 @@ final class ConfigService {
 	}
 
 	private function getBoundedInt(string $key, int $default, int $minimum, int $maximum): int {
-		$raw = $this->config->getAppValue(
-			Application::APP_ID,
+		$raw = $this->config->getAppValueString(
 			$key,
 			(string)$default,
 		);

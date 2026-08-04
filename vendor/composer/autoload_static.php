@@ -23,7 +23,9 @@ class ComposerStaticInitcc5336f96078bf57f5a1c5031483c37c
     public static $classMap = array (
         'Composer\\InstalledVersions' => __DIR__ . '/..' . '/composer/InstalledVersions.php',
         'OCA\\FilesWatermark\\AppInfo\\Application' => __DIR__ . '/../..' . '/lib/AppInfo/Application.php',
+        'OCA\\FilesWatermark\\ConfigLexicon' => __DIR__ . '/../..' . '/lib/ConfigLexicon.php',
         'OCA\\FilesWatermark\\Controller\\PreviewController' => __DIR__ . '/../..' . '/lib/Controller/PreviewController.php',
+        'OCA\\FilesWatermark\\Controller\\SettingsController' => __DIR__ . '/../..' . '/lib/Controller/SettingsController.php',
         'OCA\\FilesWatermark\\Controller\\WatermarkController' => __DIR__ . '/../..' . '/lib/Controller/WatermarkController.php',
         'OCA\\FilesWatermark\\Exception\\ProcessTimeoutException' => __DIR__ . '/../..' . '/lib/Exception/ProcessTimeoutException.php',
         'OCA\\FilesWatermark\\Exception\\WatermarkException' => __DIR__ . '/../..' . '/lib/Exception/WatermarkException.php',
@@ -38,9 +40,8 @@ class ComposerStaticInitcc5336f96078bf57f5a1c5031483c37c
         'OCA\\FilesWatermark\\Service\\RendererService' => __DIR__ . '/../..' . '/lib/Service/RendererService.php',
         'OCA\\FilesWatermark\\Service\\TextNormalizer' => __DIR__ . '/../..' . '/lib/Service/TextNormalizer.php',
         'OCA\\FilesWatermark\\Service\\WatermarkService' => __DIR__ . '/../..' . '/lib/Service/WatermarkService.php',
-        'OCA\\FilesWatermark\\Settings\\AdminPreview' => __DIR__ . '/../..' . '/lib/Settings/AdminPreview.php',
         'OCA\\FilesWatermark\\Settings\\AdminSection' => __DIR__ . '/../..' . '/lib/Settings/AdminSection.php',
-        'OCA\\FilesWatermark\\Settings\\WatermarkSettings' => __DIR__ . '/../..' . '/lib/Settings/WatermarkSettings.php',
+        'OCA\\FilesWatermark\\Settings\\AdminSettings' => __DIR__ . '/../..' . '/lib/Settings/AdminSettings.php',
         'OCA\\FilesWatermark\\SetupChecks\\RendererSetupCheck' => __DIR__ . '/../..' . '/lib/SetupChecks/RendererSetupCheck.php',
     );
 

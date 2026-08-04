@@ -10,6 +10,11 @@ declare(strict_types=1);
 return [
 	'routes' => [
 		[
+			'name' => 'settings#set',
+			'url' => '/admin/settings',
+			'verb' => 'POST',
+		],
+		[
 			'name' => 'preview#show',
 			'url' => '/admin/preview',
 			'verb' => 'GET',

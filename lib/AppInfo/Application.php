@@ -10,8 +10,8 @@ declare(strict_types=1);
 namespace OCA\FilesWatermark\AppInfo;
 
 use OCA\Files\Event\LoadAdditionalScriptsEvent;
+use OCA\FilesWatermark\ConfigLexicon;
 use OCA\FilesWatermark\Listener\LoadAdditionalScriptsListener;
-use OCA\FilesWatermark\Settings\WatermarkSettings;
 use OCA\FilesWatermark\SetupChecks\RendererSetupCheck;
 use OCP\AppFramework\App;
 use OCP\AppFramework\Bootstrap\IBootContext;
@@ -33,7 +33,7 @@ final class Application extends App implements IBootstrap {
 			LoadAdditionalScriptsEvent::class,
 			LoadAdditionalScriptsListener::class,
 		);
-		$context->registerDeclarativeSettings(WatermarkSettings::class);
+		$context->registerConfigLexicon(ConfigLexicon::class);
 		$context->registerSetupCheck(RendererSetupCheck::class);
 	}
 

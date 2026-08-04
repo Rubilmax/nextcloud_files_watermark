@@ -102,8 +102,11 @@ OC.L10N.register(
 	  "The watermarked PDF could not be saved beside the source.": "Impossible d’enregistrer le PDF filigrané à côté du fichier source.",
 	  "The watermarked PDF could not be generated.": "Impossible de générer le PDF filigrané.",
 	  "Rendering watermark preview…": "Rendu de l’aperçu du filigrane…",
+	  "Saving…": "Enregistrement…",
+	  "Saved": "Enregistré",
+	  "The setting could not be saved.": "Impossible d’enregistrer le paramètre.",
 	  "Watermark preview": "Aperçu du filigrane",
-	  "This sample PDF uses the appearance settings above and refreshes after Nextcloud saves each edit automatically.": "Cet exemple de PDF utilise les paramètres d’apparence ci-dessus et s’actualise après l’enregistrement automatique de chaque modification par Nextcloud.",
+	  "This sample PDF uses the saved appearance settings above and refreshes after each successful save.": "Cet exemple de PDF utilise les paramètres d’apparence enregistrés ci-dessus et s’actualise après chaque enregistrement réussi.",
 	  "Watermarked PDF preview": "Aperçu du PDF filigrané",
 	  "Open PDF preview": "Ouvrir l’aperçu du PDF"
 	},

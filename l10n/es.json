@@ -101,8 +101,11 @@
     "The watermarked PDF could not be saved beside the source.": "No se pudo guardar el PDF con marca de agua junto al archivo de origen.",
     "The watermarked PDF could not be generated.": "No se pudo generar el PDF con marca de agua.",
     "Rendering watermark preview…": "Renderizando la vista previa de la marca de agua…",
+    "Saving…": "Guardando…",
+    "Saved": "Guardado",
+    "The setting could not be saved.": "No se pudo guardar el ajuste.",
     "Watermark preview": "Vista previa de la marca de agua",
-    "This sample PDF uses the appearance settings above and refreshes after Nextcloud saves each edit automatically.": "Este PDF de ejemplo utiliza los ajustes de apariencia anteriores y se actualiza después de que Nextcloud guarda automáticamente cada cambio.",
+    "This sample PDF uses the saved appearance settings above and refreshes after each successful save.": "Este PDF de ejemplo utiliza los ajustes de apariencia guardados anteriormente y se actualiza después de cada guardado correcto.",
     "Watermarked PDF preview": "Vista previa del PDF con marca de agua",
     "Open PDF preview": "Abrir vista previa del PDF"
   },

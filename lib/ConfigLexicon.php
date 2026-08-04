@@ -35,6 +35,17 @@ final class ConfigLexicon implements ILexicon {
 			new Entry(ConfigService::KEY_WATERMARK_MIN_HORIZONTAL_INTERVAL, ValueType::STRING, (string)ConfigService::DEFAULT_WATERMARK_MIN_HORIZONTAL_INTERVAL, 'Minimum horizontal watermark interval in points'),
 			new Entry(ConfigService::KEY_WATERMARK_HORIZONTAL_GAP, ValueType::STRING, (string)ConfigService::DEFAULT_WATERMARK_HORIZONTAL_GAP, 'Additional horizontal watermark gap in points'),
 			new Entry(ConfigService::KEY_WATERMARK_VERTICAL_INTERVAL, ValueType::STRING, (string)ConfigService::DEFAULT_WATERMARK_VERTICAL_INTERVAL, 'Vertical watermark interval in points'),
+			new Entry(ConfigService::KEY_WATERMARK_OPACITY_VARIATION, ValueType::STRING, (string)ConfigService::DEFAULT_WATERMARK_OPACITY_VARIATION, 'Maximum random opacity variation in percent'),
+			new Entry(ConfigService::KEY_WATERMARK_SPACING_VARIATION, ValueType::STRING, (string)ConfigService::DEFAULT_WATERMARK_SPACING_VARIATION, 'Maximum random watermark spacing variation in percent'),
+			new Entry(ConfigService::KEY_WATERMARK_POSITION_JITTER, ValueType::STRING, (string)ConfigService::DEFAULT_WATERMARK_POSITION_JITTER, 'Maximum random watermark position jitter in points'),
+			new Entry(ConfigService::KEY_WATERMARK_BLUR_RADIUS, ValueType::STRING, (string)ConfigService::DEFAULT_WATERMARK_BLUR_RADIUS, 'Gaussian blur radius for the secondary watermark layer'),
+			new Entry(ConfigService::KEY_WATERMARK_BLUR_OPACITY, ValueType::STRING, (string)ConfigService::DEFAULT_WATERMARK_BLUR_OPACITY, 'Opacity multiplier for the blurred watermark layer'),
+			new Entry(ConfigService::KEY_WATERMARK_DISTORTION_ENABLED, ValueType::STRING, '0', 'Enable sinusoidal visible watermark distortion'),
+			new Entry(ConfigService::KEY_WATERMARK_DISTORTION_STRENGTH, ValueType::STRING, (string)ConfigService::DEFAULT_WATERMARK_DISTORTION_STRENGTH, 'Sinusoidal visible watermark distortion strength in pixels'),
+			new Entry(ConfigService::KEY_PIXEL_SEAL_ENABLED, ValueType::STRING, '1', 'Embed a unique PixelSeal message into every rendered page'),
+			new Entry(ConfigService::KEY_PIXEL_SEAL_MODEL_PATH, ValueType::STRING, ConfigService::DEFAULT_PIXEL_SEAL_MODEL_PATH, 'Absolute path to the PixelSeal checkpoint'),
+			new Entry(ConfigService::KEY_PIXEL_SEAL_STRENGTH, ValueType::STRING, (string)ConfigService::DEFAULT_PIXEL_SEAL_STRENGTH, 'PixelSeal watermark strength as a percent'),
+			new Entry(ConfigService::KEY_PIXEL_SEAL_DEVICE, ValueType::STRING, ConfigService::DEFAULT_PIXEL_SEAL_DEVICE, 'PixelSeal inference device'),
 		];
 	}
 

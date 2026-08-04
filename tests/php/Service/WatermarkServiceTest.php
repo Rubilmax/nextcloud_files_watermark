@@ -116,6 +116,8 @@ final class WatermarkServiceTest extends TestCase {
 
 		$result = $service->generate('42', '/Reports/File.pdf', "  Confidential  ");
 
+		self::assertMatchesRegularExpression('/^[0-9a-f]{64}$/', $result['invisibleWatermarkId'] ?? '');
+		unset($result['invisibleWatermarkId']);
 		self::assertSame([
 			'id' => '84',
 			'path' => '/Reports/File - Confidential (2).pdf',

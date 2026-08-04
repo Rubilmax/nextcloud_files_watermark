@@ -4,11 +4,16 @@
 from __future__ import annotations
 
 import json
+import importlib.util
 import subprocess
 import sys
+import types
+from contextlib import nullcontext
 from pathlib import Path
 
+import numpy as np
 import pymupdf
+from PIL import Image
 
 SCRIPT = Path(__file__).parents[2] / "scripts" / "rasterize.py"
 
@@ -35,6 +40,19 @@ def run_renderer(
         "watermarkMinimumHorizontalInterval": 145,
         "watermarkHorizontalGap": 48,
         "watermarkVerticalInterval": 78,
+        "watermarkOpacityVariationPercent": 5,
+        "watermarkSpacingVariationPercent": 10,
+        "watermarkPositionJitterPoints": 8,
+        "watermarkBlurRadiusPixels": 6,
+        "watermarkBlurOpacityPercent": 80,
+        "watermarkDistortionEnabled": False,
+        "watermarkDistortionStrengthPixels": 12,
+        "randomSeed": "a" * 64,
+        "pixelSealEnabled": False,
+        "pixelSealMessage": None,
+        "pixelSealModelPath": "/opt/files-watermark-python/models/pixelseal.pth",
+        "pixelSealStrengthPercent": 20,
+        "pixelSealDevice": "auto",
     }
     config.update(appearance or {})
     command = [sys.executable, str(SCRIPT), str(source), str(output)]
@@ -176,6 +194,18 @@ def test_rejects_invalid_watermark_appearance(tmp_path: Path) -> None:
         "watermarkMinimumHorizontalInterval": 19,
         "watermarkHorizontalGap": -1,
         "watermarkVerticalInterval": 2001,
+        "watermarkOpacityVariationPercent": 51,
+        "watermarkSpacingVariationPercent": 41,
+        "watermarkPositionJitterPoints": 101,
+        "watermarkBlurRadiusPixels": 65,
+        "watermarkBlurOpacityPercent": 101,
+        "watermarkDistortionEnabled": "yes",
+        "watermarkDistortionStrengthPixels": 129,
+        "randomSeed": "short",
+        "pixelSealEnabled": "yes",
+        "pixelSealModelPath": "relative.pth",
+        "pixelSealStrengthPercent": 0,
+        "pixelSealDevice": "tpu",
     }
     for key, value in invalid_values.items():
         output = tmp_path / f"invalid-{key}.pdf"
@@ -198,6 +228,186 @@ def test_rejects_page_limit(tmp_path: Path) -> None:
     assert result.returncode == 12
     assert json.loads(result.stderr)["code"] == "page_limit_exceeded"
     assert not output.exists()
+
+
+def test_randomized_visible_watermark_is_seeded_and_distortion_changes_output(tmp_path: Path) -> None:
+    source = tmp_path / "blank.pdf"
+    first = tmp_path / "first.pdf"
+    repeated = tmp_path / "repeated.pdf"
+    different = tmp_path / "different.pdf"
+    distorted = tmp_path / "distorted.pdf"
+    document = pymupdf.open()
+    document.new_page(width=400, height=300)
+    document.save(source)
+    document.close()
+
+    assert run_renderer(source, first).returncode == 0
+    assert run_renderer(source, repeated).returncode == 0
+    assert run_renderer(source, different, appearance={"randomSeed": "b" * 64}).returncode == 0
+    assert run_renderer(
+        source,
+        distorted,
+        appearance={"watermarkDistortionEnabled": True},
+    ).returncode == 0
+
+    def page_jpeg(path: Path) -> bytes:
+        with pymupdf.open(path) as rendered:
+            xref = rendered[0].get_images(full=True)[0][0]
+            return rendered.extract_image(xref)["image"]
+
+    assert page_jpeg(first) == page_jpeg(repeated)
+    assert page_jpeg(first) != page_jpeg(different)
+    assert page_jpeg(first) != page_jpeg(distorted)
+
+
+def test_embeds_pixel_seal_after_visible_watermark_on_every_page(tmp_path: Path) -> None:
+    source = tmp_path / "source.pdf"
+    output = tmp_path / "output.pdf"
+    document = pymupdf.open()
+    document.new_page(width=300, height=200)
+    document.new_page(width=300, height=200)
+    document.save(source)
+    document.close()
+
+    spec = importlib.util.spec_from_file_location("files_watermark_rasterize", SCRIPT)
+    assert spec is not None and spec.loader is not None
+    renderer = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(renderer)
+    calls: list[bool] = []
+
+    class FakePixelSeal:
+        def __init__(self, config: dict[str, object]) -> None:
+            assert config["pixelSealMessage"] == "c" * 64
+
+        def embed(self, image):
+            calls.append(image.getbbox() is not None and image.getextrema() != ((255, 255),) * 3)
+            return image
+
+    config = {
+        "text": "CONFIDENTIAL",
+        "dpi": 96,
+        "maxPages": 20,
+        "jpegQuality": 88,
+        "watermarkFontSize": 28,
+        "watermarkColor": "#333333",
+        "watermarkOpacityPercent": 30,
+        "watermarkAngle": 30,
+        "watermarkMinimumHorizontalInterval": 145,
+        "watermarkHorizontalGap": 48,
+        "watermarkVerticalInterval": 78,
+        "watermarkOpacityVariationPercent": 5,
+        "watermarkSpacingVariationPercent": 10,
+        "watermarkPositionJitterPoints": 8,
+        "watermarkBlurRadiusPixels": 6,
+        "watermarkBlurOpacityPercent": 80,
+        "watermarkDistortionEnabled": False,
+        "watermarkDistortionStrengthPixels": 12,
+        "randomSeed": "c" * 64,
+        "pixelSealEnabled": True,
+        "pixelSealMessage": "c" * 64,
+        "pixelSealModelPath": "/unused-in-test.pth",
+        "pixelSealStrengthPercent": 20,
+        "pixelSealDevice": "auto",
+    }
+    renderer.rasterize(source, output, config, pixel_seal_factory=FakePixelSeal)
+
+    assert calls == [True, True]
+    with pymupdf.open(output) as marked:
+        assert marked.page_count == 2
+
+
+def test_pixel_seal_adapter_loads_local_model_and_uses_image_api(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    spec = importlib.util.spec_from_file_location("files_watermark_pixelseal", SCRIPT)
+    assert spec is not None and spec.loader is not None
+    renderer = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(renderer)
+    checkpoint = tmp_path / "pixelseal.pth"
+    checkpoint.write_bytes(b"checkpoint")
+    captured: dict[str, object] = {}
+
+    class FakeTensor:
+        def __init__(self, array: np.ndarray) -> None:
+            self.array = array
+
+        def __getattr__(self, _name):
+            return lambda *_args, **_kwargs: self
+
+        def unsqueeze(self, axis: int):
+            return FakeTensor(np.expand_dims(self.array, axis))
+
+        def numpy(self) -> np.ndarray:
+            return self.array
+
+    class FakeOutputTensor(FakeTensor):
+        pass
+
+    class FakeModel:
+        def __init__(self) -> None:
+            self.blender = types.SimpleNamespace(scaling_w=None)
+
+        def to(self, device):
+            captured["device"] = device
+            return self
+
+        def eval(self):
+            return self
+
+        def embed(self, _tensor, message, **kwargs):
+            captured["message"] = message.array.copy()
+            captured["embed_kwargs"] = kwargs
+            pixels = np.full((16, 12, 3), 127, dtype=np.uint8)
+            return {"imgs_w": FakeOutputTensor(pixels)}
+
+    model = FakeModel()
+
+    def from_numpy(array: np.ndarray) -> FakeTensor:
+        return FakeTensor(array)
+
+    torch = types.ModuleType("torch")
+    torch.cuda = types.SimpleNamespace(is_available=lambda: False)
+    torch.backends = types.SimpleNamespace(mps=types.SimpleNamespace(is_available=lambda: False))
+    torch.device = lambda value: value
+    torch.from_numpy = from_numpy
+    torch.inference_mode = nullcontext
+    torch.uint8 = "uint8"
+    videoseal = types.ModuleType("videoseal")
+    videoseal.__file__ = str(tmp_path / "videoseal" / "__init__.py")
+    cfg = types.ModuleType("videoseal.utils.cfg")
+
+    def setup_model(_config, path):
+        captured["checkpoint"] = path
+        return model
+
+    cfg.setup_model = setup_model
+    omegaconf = types.ModuleType("omegaconf")
+    omegaconf.OmegaConf = types.SimpleNamespace(load=lambda path: {"card": path})
+    monkeypatch.setitem(sys.modules, "torch", torch)
+    monkeypatch.setitem(sys.modules, "videoseal", videoseal)
+    monkeypatch.setitem(sys.modules, "videoseal.utils", types.ModuleType("videoseal.utils"))
+    monkeypatch.setitem(sys.modules, "videoseal.utils.cfg", cfg)
+    monkeypatch.setitem(sys.modules, "omegaconf", omegaconf)
+
+    config = {
+        "pixelSealModelPath": str(checkpoint),
+        "pixelSealDevice": "auto",
+        "pixelSealStrengthPercent": 20,
+        "pixelSealMessage": "80" + "00" * 31,
+    }
+    embedder = renderer.PixelSealEmbedder(config)
+    result = embedder.embed(Image.new("RGB", (12, 16), "white"))
+
+    assert captured["checkpoint"] == checkpoint
+    assert captured["device"] == "cpu"
+    assert model.blender.scaling_w == 0.2
+    assert captured["embed_kwargs"] == {"is_video": False, "lowres_attenuation": True}
+    message = captured["message"]
+    assert isinstance(message, np.ndarray)
+    assert message.shape == (1, 256)
+    assert message[0, :8].tolist() == [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+    assert result.size == (12, 16)
 
 
 def test_rejects_page_dimensions_that_would_exhaust_memory(tmp_path: Path) -> None:

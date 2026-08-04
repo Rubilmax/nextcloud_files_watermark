@@ -54,17 +54,21 @@ final class RendererSetupCheck implements ISetupCheck {
 	/** @param array{available: bool, message: string, version?: string} $status */
 	private function translateRendererStatus(array $status): string {
 		if (isset($status['version'])) {
-			return $status['available']
-				? $this->l10n->t('PyMuPDF %s is available.', $status['version'])
-				: $this->l10n->t(
+			if (!$status['available']) {
+				return $this->l10n->t(
 					'PyMuPDF %s is outside the supported >=1.28.0,<1.29.0 range.',
 					$status['version'],
 				);
+			}
+
+			return $this->config->isPixelSealEnabled()
+				? $this->l10n->t('PyMuPDF %s and PixelSeal are available.', $status['version'])
+				: $this->l10n->t('PyMuPDF %s is available; PixelSeal is disabled.', $status['version']);
 		}
 
 		return match ($status['message']) {
 			'PHP proc_open is disabled.' => $this->l10n->t('PHP proc_open is disabled.'),
-			'Configured Python cannot import PyMuPDF.' => $this->l10n->t('Configured Python cannot import PyMuPDF.'),
+			'Configured Python cannot import the renderer dependencies.' => $this->l10n->t('Configured Python cannot import the renderer dependencies.'),
 			default => $status['message'],
 		};
 	}

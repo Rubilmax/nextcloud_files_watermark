@@ -10,6 +10,7 @@ import { loadState } from '@nextcloud/initial-state'
 import { t } from '@nextcloud/l10n'
 import { generateUrl } from '@nextcloud/router'
 import { computed, onBeforeUnmount, reactive, ref } from 'vue'
+import NcCheckboxRadioSwitch from '@nextcloud/vue/components/NcCheckboxRadioSwitch'
 import NcInputField from '@nextcloud/vue/components/NcInputField'
 import NcSettingsSection from '@nextcloud/vue/components/NcSettingsSection'
 
@@ -28,6 +29,17 @@ interface AdminValues {
 	watermark_minimum_horizontal_interval_points: string
 	watermark_horizontal_gap_points: string
 	watermark_vertical_interval_points: string
+	watermark_opacity_variation_percent: string
+	watermark_spacing_variation_percent: string
+	watermark_position_jitter_points: string
+	watermark_blur_radius_pixels: string
+	watermark_blur_opacity_percent: string
+	watermark_distortion_enabled: string
+	watermark_distortion_strength_pixels: string
+	pixel_seal_enabled: string
+	pixel_seal_model_path: string
+	pixel_seal_strength_percent: string
+	pixel_seal_device: string
 	maximum_source_size_mib: string
 	maximum_pages: string
 	timeout_seconds: string
@@ -56,21 +68,7 @@ interface SaveResponse {
 }
 
 const initialState = loadState<AdminState>(APP_ID, 'admin-settings')
-const definitions: SettingDefinition[] = [
-	{
-		key: 'python_executable',
-		label: t(APP_ID, 'Python executable'),
-		description: t(APP_ID, 'Executable or absolute path used to run the local renderer.'),
-		type: 'text',
-	},
-	{
-		key: 'raster_dpi',
-		label: t(APP_ID, 'Raster DPI'),
-		description: t(APP_ID, 'Resolution from 96 to 300 DPI. Higher values use more memory and storage.'),
-		type: 'number',
-		minimum: 96,
-		maximum: 300,
-	},
+const visibleDefinitions: SettingDefinition[] = [
 	{
 		key: 'watermark_font_size_points',
 		label: t(APP_ID, 'Watermark font size (points)'),
@@ -124,6 +122,94 @@ const definitions: SettingDefinition[] = [
 		type: 'number',
 		minimum: 20,
 		maximum: 2000,
+	},
+	{
+		key: 'watermark_opacity_variation_percent',
+		label: t(APP_ID, 'Opacity variation (percent)'),
+		description: t(APP_ID, 'Randomly vary the page watermark opacity by up to 0 to 50 percentage points.'),
+		type: 'number',
+		minimum: 0,
+		maximum: 50,
+	},
+	{
+		key: 'watermark_spacing_variation_percent',
+		label: t(APP_ID, 'Spacing variation (percent)'),
+		description: t(APP_ID, 'Randomly vary horizontal and vertical spacing by up to 0 to 40 percent.'),
+		type: 'number',
+		minimum: 0,
+		maximum: 40,
+	},
+	{
+		key: 'watermark_position_jitter_points',
+		label: t(APP_ID, 'Position jitter (points)'),
+		description: t(APP_ID, 'Randomly offset each repeated watermark by up to 0 to 100 points.'),
+		type: 'number',
+		minimum: 0,
+		maximum: 100,
+	},
+	{
+		key: 'watermark_blur_radius_pixels',
+		label: t(APP_ID, 'Blur radius (pixels)'),
+		description: t(APP_ID, 'Gaussian blur radius for the secondary watermark layer, from 0 to 64 pixels.'),
+		type: 'number',
+		minimum: 0,
+		maximum: 64,
+	},
+	{
+		key: 'watermark_blur_opacity_percent',
+		label: t(APP_ID, 'Blur opacity (percent)'),
+		description: t(APP_ID, 'Opacity multiplier for the blurred layer, from 0 to 100 percent.'),
+		type: 'number',
+		minimum: 0,
+		maximum: 100,
+	},
+	{
+		key: 'watermark_distortion_strength_pixels',
+		label: t(APP_ID, 'Distortion strength (pixels)'),
+		description: t(APP_ID, 'Maximum nonlinear displacement when distortion is enabled, from 0 to 128 pixels.'),
+		type: 'number',
+		minimum: 0,
+		maximum: 128,
+	},
+]
+
+const pixelSealDefinitions: SettingDefinition[] = [
+	{
+		key: 'pixel_seal_model_path',
+		label: t(APP_ID, 'PixelSeal checkpoint path'),
+		description: t(APP_ID, 'Absolute local path to Meta’s PixelSeal checkpoint.'),
+		type: 'text',
+	},
+	{
+		key: 'pixel_seal_strength_percent',
+		label: t(APP_ID, 'PixelSeal strength (percent)'),
+		description: t(APP_ID, 'Invisible signal strength from 1 to 100 percent; 20 percent is the model default.'),
+		type: 'number',
+		minimum: 1,
+		maximum: 100,
+	},
+	{
+		key: 'pixel_seal_device',
+		label: t(APP_ID, 'PixelSeal device'),
+		description: t(APP_ID, 'Inference device: auto, cpu, cuda, or mps.'),
+		type: 'text',
+	},
+]
+
+const rendererDefinitions: SettingDefinition[] = [
+	{
+		key: 'python_executable',
+		label: t(APP_ID, 'Python executable'),
+		description: t(APP_ID, 'Executable or absolute path used to run the local renderer.'),
+		type: 'text',
+	},
+	{
+		key: 'raster_dpi',
+		label: t(APP_ID, 'Raster DPI'),
+		description: t(APP_ID, 'Resolution from 96 to 300 DPI. Higher values use more memory and storage.'),
+		type: 'number',
+		minimum: 96,
+		maximum: 300,
 	},
 	{
 		key: 'maximum_source_size_mib',
@@ -199,6 +285,20 @@ function saveOnBlur(key: SettingKey): void {
 }
 
 /**
+ * Persist switches immediately, following Nextcloud administration controls.
+ *
+ * @param key Setting to update
+ * @param value New switch value
+ */
+function updateBoolean(key: SettingKey, value: boolean): void {
+	clearTimeout(saveTimers[key])
+	values[key] = value ? '1' : '0'
+	errors[key] = ''
+	saved[key] = false
+	void saveSetting(key)
+}
+
+/**
  * Persist one field through the app's CSRF-protected admin controller.
  *
  * @param key Setting to save
@@ -250,16 +350,26 @@ async function saveSetting(key: SettingKey): Promise<void> {
  * @param setting Field definition
  */
 function getHelperText(setting: SettingDefinition): string {
-	if (errors[setting.key]) {
-		return errors[setting.key] ?? ''
+	return getStatusText(setting.key, setting.description)
+}
+
+/**
+ * Return help text or save state for a setting without an input definition.
+ *
+ * @param key Setting to describe
+ * @param description Default help text
+ */
+function getStatusText(key: SettingKey, description: string): string {
+	if (errors[key]) {
+		return errors[key] ?? ''
 	}
-	if (saving[setting.key]) {
+	if (saving[key]) {
 		return t(APP_ID, 'Saving…')
 	}
-	if (saved[setting.key]) {
+	if (saved[key]) {
 		return t(APP_ID, 'Saved')
 	}
-	return setting.description
+	return description
 }
 
 /** Reload both preview targets after the server confirms persistence. */
@@ -296,11 +406,74 @@ onBeforeUnmount(() => {
 <template>
 	<div class="files-watermark-admin-settings">
 		<NcSettingsSection
-			:name="t(APP_ID, 'Watermark settings')"
-			:description="t(APP_ID, 'Configure watermark appearance, the local PyMuPDF renderer, and synchronous safety limits.')">
+			:name="t(APP_ID, 'Visible watermark')"
+			:description="t(APP_ID, 'Configure the randomized FiligraneFacile-style watermark baked into every rendered page.')">
 			<div class="files-watermark-admin-settings__fields">
 				<NcInputField
-					v-for="setting in definitions"
+					v-for="setting in visibleDefinitions"
+					:id="`files-watermark-${setting.key}`"
+					:key="setting.key"
+					:data-testid="`setting-${setting.key}`"
+					:modelValue="values[setting.key]"
+					:label="setting.label"
+					:type="setting.type"
+					:min="setting.minimum"
+					:max="setting.maximum"
+					:step="setting.type === 'number' ? 1 : undefined"
+					:error="Boolean(errors[setting.key])"
+					:success="Boolean(saved[setting.key])"
+					:helperText="getHelperText(setting)"
+					autocomplete="off"
+					@update:modelValue="updateValue(setting.key, $event)"
+					@blur="saveOnBlur(setting.key)" />
+				<div class="files-watermark-admin-settings__switch">
+					<NcCheckboxRadioSwitch
+						:modelValue="values.watermark_distortion_enabled === '1'"
+						data-testid="setting-watermark_distortion_enabled"
+						@update:modelValue="updateBoolean('watermark_distortion_enabled', $event)">
+						{{ t(APP_ID, 'Enable nonlinear distortion') }}
+					</NcCheckboxRadioSwitch>
+					<small>{{ getStatusText('watermark_distortion_enabled', t(APP_ID, 'Warp the sharp watermark layer to make uniform automated cleanup more difficult.')) }}</small>
+				</div>
+			</div>
+		</NcSettingsSection>
+
+		<NcSettingsSection
+			:name="t(APP_ID, 'Watermark preview')"
+			:description="t(APP_ID, 'This sample PDF uses the saved visible settings and refreshes after each successful save. PixelSeal is omitted because it has no visible preview.')">
+			<div
+				class="files-watermark-admin-settings__document"
+				:aria-busy="previewLoading ? 'true' : 'false'">
+				<img
+					class="files-watermark-admin-settings__image"
+					:src="previewImageUrl"
+					:alt="t(APP_ID, 'Watermarked PDF preview')"
+					@load="onPreviewLoad"
+					@error="onPreviewError">
+			</div>
+			<div class="files-watermark-admin-settings__preview-footer">
+				<span role="status" aria-live="polite">{{ previewStatus }}</span>
+				<a :href="previewPdfUrl" target="_blank" rel="noopener noreferrer">
+					{{ t(APP_ID, 'Open PDF preview') }}
+				</a>
+			</div>
+		</NcSettingsSection>
+
+		<NcSettingsSection
+			:name="t(APP_ID, 'Invisible PixelSeal watermark')"
+			:description="t(APP_ID, 'Embed one random 256-bit identifier into every page after visible watermarking. The identifier is returned with the generated file.')">
+			<div class="files-watermark-admin-settings__fields">
+				<div class="files-watermark-admin-settings__switch">
+					<NcCheckboxRadioSwitch
+						:modelValue="values.pixel_seal_enabled === '1'"
+						data-testid="setting-pixel_seal_enabled"
+						@update:modelValue="updateBoolean('pixel_seal_enabled', $event)">
+						{{ t(APP_ID, 'Enable PixelSeal') }}
+					</NcCheckboxRadioSwitch>
+					<small>{{ getStatusText('pixel_seal_enabled', t(APP_ID, 'Requires the VideoSeal Python package and a local PixelSeal checkpoint.')) }}</small>
+				</div>
+				<NcInputField
+					v-for="setting in pixelSealDefinitions"
 					:id="`files-watermark-${setting.key}`"
 					:key="setting.key"
 					:data-testid="`setting-${setting.key}`"
@@ -320,23 +493,26 @@ onBeforeUnmount(() => {
 		</NcSettingsSection>
 
 		<NcSettingsSection
-			:name="t(APP_ID, 'Watermark preview')"
-			:description="t(APP_ID, 'This sample PDF uses the saved appearance settings above and refreshes after each successful save.')">
-			<div
-				class="files-watermark-admin-settings__document"
-				:aria-busy="previewLoading ? 'true' : 'false'">
-				<img
-					class="files-watermark-admin-settings__image"
-					:src="previewImageUrl"
-					:alt="t(APP_ID, 'Watermarked PDF preview')"
-					@load="onPreviewLoad"
-					@error="onPreviewError">
-			</div>
-			<div class="files-watermark-admin-settings__preview-footer">
-				<span role="status" aria-live="polite">{{ previewStatus }}</span>
-				<a :href="previewPdfUrl" target="_blank" rel="noopener noreferrer">
-					{{ t(APP_ID, 'Open PDF preview') }}
-				</a>
+			:name="t(APP_ID, 'Renderer and safety limits')"
+			:description="t(APP_ID, 'Configure the local renderer and synchronous resource limits.')">
+			<div class="files-watermark-admin-settings__fields">
+				<NcInputField
+					v-for="setting in rendererDefinitions"
+					:id="`files-watermark-${setting.key}`"
+					:key="setting.key"
+					:data-testid="`setting-${setting.key}`"
+					:modelValue="values[setting.key]"
+					:label="setting.label"
+					:type="setting.type"
+					:min="setting.minimum"
+					:max="setting.maximum"
+					:step="setting.type === 'number' ? 1 : undefined"
+					:error="Boolean(errors[setting.key])"
+					:success="Boolean(saved[setting.key])"
+					:helperText="getHelperText(setting)"
+					autocomplete="off"
+					@update:modelValue="updateValue(setting.key, $event)"
+					@blur="saveOnBlur(setting.key)" />
 			</div>
 		</NcSettingsSection>
 	</div>

@@ -9,10 +9,12 @@ from __future__ import annotations
 
 import json
 import math
+import random
 import re
 import sys
+from io import BytesIO
 from pathlib import Path
-from typing import Any, NoReturn
+from typing import Any, Callable, NoReturn, Protocol
 
 EXIT_ENCRYPTED = 10
 EXIT_MALFORMED = 11
@@ -24,6 +26,7 @@ EXIT_DEPENDENCY = 20
 MIN_VERSION = (1, 28, 0)
 MAX_VERSION = (1, 29, 0)
 MAX_PAGE_PIXELS = 50_000_000
+MAX_PIXEL_SEAL_PAGE_PIXELS = 20_000_000
 MAX_PIXEL_DIMENSION = 32_768
 
 
@@ -42,6 +45,16 @@ try:
     import pymupdf
 except Exception as exception:  # pragma: no cover - executed without dependency
     fail(EXIT_DEPENDENCY, "dependency_unavailable", f"PyMuPDF is unavailable: {exception}")
+
+try:
+    import numpy as np
+    from PIL import Image, ImageFilter
+except Exception as exception:  # pragma: no cover - executed without dependency
+    fail(
+        EXIT_DEPENDENCY,
+        "dependency_unavailable",
+        f"Pillow or NumPy is unavailable: {exception}",
+    )
 
 
 def version_tuple(version: str) -> tuple[int, int, int]:
@@ -77,6 +90,19 @@ def read_config() -> dict[str, Any]:
     minimum_horizontal_interval = config.get("watermarkMinimumHorizontalInterval")
     horizontal_gap = config.get("watermarkHorizontalGap")
     vertical_interval = config.get("watermarkVerticalInterval")
+    opacity_variation = config.get("watermarkOpacityVariationPercent")
+    spacing_variation = config.get("watermarkSpacingVariationPercent")
+    position_jitter = config.get("watermarkPositionJitterPoints")
+    blur_radius = config.get("watermarkBlurRadiusPixels")
+    blur_opacity = config.get("watermarkBlurOpacityPercent")
+    distortion_enabled = config.get("watermarkDistortionEnabled")
+    distortion_strength = config.get("watermarkDistortionStrengthPixels")
+    random_seed = config.get("randomSeed")
+    pixel_seal_enabled = config.get("pixelSealEnabled")
+    pixel_seal_message = config.get("pixelSealMessage")
+    pixel_seal_model_path = config.get("pixelSealModelPath")
+    pixel_seal_strength = config.get("pixelSealStrengthPercent")
+    pixel_seal_device = config.get("pixelSealDevice")
     if not isinstance(text, str) or not text or len(text) > 128:
         fail(EXIT_BAD_REQUEST, "invalid_text", "Watermark text must contain 1 to 128 characters.")
     if type(dpi) is not int or not 96 <= dpi <= 300:
@@ -118,6 +144,75 @@ def read_config() -> dict[str, Any]:
             "invalid_vertical_interval",
             "Watermark vertical interval must be from 20 to 2000 points.",
         )
+    if type(opacity_variation) is not int or not 0 <= opacity_variation <= 50:
+        fail(
+            EXIT_BAD_REQUEST,
+            "invalid_opacity_variation",
+            "Watermark opacity variation must be from 0 to 50 percent.",
+        )
+    if type(spacing_variation) is not int or not 0 <= spacing_variation <= 40:
+        fail(
+            EXIT_BAD_REQUEST,
+            "invalid_spacing_variation",
+            "Watermark spacing variation must be from 0 to 40 percent.",
+        )
+    if type(position_jitter) is not int or not 0 <= position_jitter <= 100:
+        fail(
+            EXIT_BAD_REQUEST,
+            "invalid_position_jitter",
+            "Watermark position jitter must be from 0 to 100 points.",
+        )
+    if type(blur_radius) is not int or not 0 <= blur_radius <= 64:
+        fail(
+            EXIT_BAD_REQUEST,
+            "invalid_blur_radius",
+            "Watermark blur radius must be from 0 to 64 pixels.",
+        )
+    if type(blur_opacity) is not int or not 0 <= blur_opacity <= 100:
+        fail(
+            EXIT_BAD_REQUEST,
+            "invalid_blur_opacity",
+            "Watermark blur opacity must be from 0 to 100 percent.",
+        )
+    if type(distortion_enabled) is not bool:
+        fail(EXIT_BAD_REQUEST, "invalid_distortion", "Watermark distortion must be enabled or disabled.")
+    if type(distortion_strength) is not int or not 0 <= distortion_strength <= 128:
+        fail(
+            EXIT_BAD_REQUEST,
+            "invalid_distortion_strength",
+            "Watermark distortion strength must be from 0 to 128 pixels.",
+        )
+    if not isinstance(random_seed, str) or re.fullmatch(r"[0-9a-f]{64}", random_seed) is None:
+        fail(EXIT_BAD_REQUEST, "invalid_random_seed", "Random seed must contain exactly 256 bits.")
+    if type(pixel_seal_enabled) is not bool:
+        fail(EXIT_BAD_REQUEST, "invalid_pixel_seal", "PixelSeal must be enabled or disabled.")
+    if pixel_seal_enabled and (
+        not isinstance(pixel_seal_message, str)
+        or re.fullmatch(r"[0-9a-f]{64}", pixel_seal_message) is None
+    ):
+        fail(
+            EXIT_BAD_REQUEST,
+            "invalid_pixel_seal_message",
+            "PixelSeal message must contain exactly 256 bits.",
+        )
+    if not isinstance(pixel_seal_model_path, str) or not Path(pixel_seal_model_path).is_absolute():
+        fail(
+            EXIT_BAD_REQUEST,
+            "invalid_pixel_seal_model_path",
+            "PixelSeal model path must be absolute.",
+        )
+    if type(pixel_seal_strength) is not int or not 1 <= pixel_seal_strength <= 100:
+        fail(
+            EXIT_BAD_REQUEST,
+            "invalid_pixel_seal_strength",
+            "PixelSeal strength must be from 1 to 100 percent.",
+        )
+    if pixel_seal_device not in ("auto", "cpu", "cuda", "mps"):
+        fail(
+            EXIT_BAD_REQUEST,
+            "invalid_pixel_seal_device",
+            "PixelSeal device must be auto, cpu, cuda, or mps.",
+        )
 
     return config
 
@@ -139,9 +234,13 @@ def color_from_hex(value: str) -> tuple[float, float, float]:
     )
 
 
-def make_watermark_tile(text: str, config: dict[str, Any]) -> pymupdf.Document:
+def make_watermark_tile(
+    text: str,
+    config: dict[str, Any],
+    opacity_percent: float,
+) -> pymupdf.Document:
     font_size = float(config["watermarkFontSize"])
-    opacity = config["watermarkOpacityPercent"] / 100
+    opacity = opacity_percent / 100
     color = color_from_hex(config["watermarkColor"])
     font = load_font()
     text_width = max(font.text_length(text, fontsize=font_size), font_size * 3)
@@ -171,8 +270,9 @@ def add_staggered_watermarks(
     page: pymupdf.Page,
     tile: pymupdf.Document,
     config: dict[str, Any],
+    rng: random.Random,
 ) -> None:
-    """Cover the page with repeated, staggered watermark tiles."""
+    """Cover the page with repeated, randomly offset watermark tiles."""
     natural = tile[0].rect
     watermark_angle = config["watermarkAngle"]
     angle = math.radians(watermark_angle)
@@ -182,18 +282,29 @@ def add_staggered_watermarks(
     # The exact rotated bounds preserve the configured tile at its natural scale.
     target_width = natural.width * abs(math.cos(angle)) + natural.height * abs(math.sin(angle))
     target_height = natural.width * abs(math.sin(angle)) + natural.height * abs(math.cos(angle))
-    step_x = max(
+    base_step_x = max(
         float(config["watermarkMinimumHorizontalInterval"]),
         target_width + config["watermarkHorizontalGap"],
     )
-    step_y = float(config["watermarkVerticalInterval"])
+    base_step_y = float(config["watermarkVerticalInterval"])
+    spacing_variation = config["watermarkSpacingVariationPercent"] / 100
+    step_x = base_step_x * rng.uniform(1 - spacing_variation, 1 + spacing_variation)
+    step_y = base_step_y * rng.uniform(1 - spacing_variation, 1 + spacing_variation)
+    jitter = float(config["watermarkPositionJitterPoints"])
 
     row = 0
-    y = -target_height + step_y
+    y = -target_height + step_y + rng.uniform(-jitter, jitter)
     while y < page.rect.height:
-        x = -(step_x / 2) if row % 2 else 0
+        x = (-(step_x / 2) if row % 2 else 0) + rng.uniform(-jitter, jitter)
         while x < page.rect.width:
-            rect = pymupdf.Rect(x, y, x + target_width, y + target_height)
+            jitter_x = rng.uniform(-jitter, jitter)
+            jitter_y = rng.uniform(-jitter, jitter)
+            rect = pymupdf.Rect(
+                x + jitter_x,
+                y + jitter_y,
+                x + jitter_x + target_width,
+                y + jitter_y + target_height,
+            )
             page.show_pdf_page(
                 rect,
                 tile,
@@ -207,12 +318,227 @@ def add_staggered_watermarks(
         row += 1
 
 
+def image_from_pixmap(pixmap: pymupdf.Pixmap) -> Image.Image:
+    """Convert a PyMuPDF pixmap into an unpremultiplied Pillow image."""
+    channels = pixmap.n
+    rows = np.frombuffer(pixmap.samples, dtype=np.uint8).reshape(pixmap.height, pixmap.stride)
+    pixels = rows[:, : pixmap.width * channels].reshape(pixmap.height, pixmap.width, channels).copy()
+    if pixmap.alpha:
+        alpha = pixels[:, :, 3:4].astype(np.float32)
+        rgb = np.where(
+            alpha > 0,
+            np.minimum(255, pixels[:, :, :3].astype(np.float32) * 255 / np.maximum(alpha, 1)),
+            0,
+        )
+        pixels[:, :, :3] = rgb.astype(np.uint8)
+        return Image.fromarray(pixels, "RGBA")
+    return Image.fromarray(pixels[:, :, :3], "RGB")
+
+
+def distort_watermark_layer(layer: Image.Image, strength: int) -> Image.Image:
+    """Apply FiligraneFacile-style nonlinear vertical displacement."""
+    if strength <= 0:
+        return layer
+    pixels = np.asarray(layer)
+    height, width = pixels.shape[:2]
+    y, x = np.indices((height, width))
+    offset = strength * np.sin(y * 8 / max(height, 1)) * np.sin(x * 12 / max(width, 1)) ** 2
+    source_y = np.clip(np.rint(y + offset), 0, height - 1).astype(np.int32)
+    distorted = pixels[source_y, x]
+    return Image.fromarray(distorted.astype(np.uint8), "RGBA")
+
+
+def render_visible_watermark(
+    original_pixmap: pymupdf.Pixmap,
+    visible_rect: pymupdf.Rect,
+    config: dict[str, Any],
+    rng: random.Random,
+) -> Image.Image:
+    """Render randomized sharp and blurred watermark layers above the source pixels."""
+    opacity_variation = config["watermarkOpacityVariationPercent"]
+    opacity = min(
+        100.0,
+        max(
+            1.0,
+            config["watermarkOpacityPercent"]
+            + rng.uniform(-opacity_variation, opacity_variation),
+        ),
+    )
+    tile = make_watermark_tile(config["text"], config, opacity)
+    layer_document = pymupdf.open()
+    try:
+        layer_page = layer_document.new_page(width=visible_rect.width, height=visible_rect.height)
+        add_staggered_watermarks(layer_page, tile, config, rng)
+        layer_pixmap = layer_page.get_pixmap(
+            dpi=config["dpi"],
+            colorspace=pymupdf.csRGB,
+            alpha=True,
+            annots=False,
+        )
+        sharp_layer = image_from_pixmap(layer_pixmap)
+    finally:
+        layer_document.close()
+        tile.close()
+
+    base = image_from_pixmap(original_pixmap).convert("RGBA")
+    blur_radius = config["watermarkBlurRadiusPixels"]
+    blur_opacity = config["watermarkBlurOpacityPercent"] / 100
+    if blur_radius > 0 and blur_opacity > 0:
+        blurred_layer = sharp_layer.filter(ImageFilter.GaussianBlur(radius=blur_radius))
+        alpha = blurred_layer.getchannel("A").point(lambda value: round(value * blur_opacity))
+        blurred_layer.putalpha(alpha)
+        base.alpha_composite(blurred_layer)
+
+    if config["watermarkDistortionEnabled"]:
+        sharp_layer = distort_watermark_layer(
+            sharp_layer,
+            config["watermarkDistortionStrengthPixels"],
+        )
+    base.alpha_composite(sharp_layer)
+    return base.convert("RGB")
+
+
+class PixelSealEmbedder:
+    """Load Meta PixelSeal once and embed one 256-bit message into each page."""
+
+    def __init__(self, config: dict[str, Any]) -> None:
+        try:
+            import torch
+            import videoseal
+            from omegaconf import OmegaConf
+            from videoseal.utils.cfg import setup_model
+        except Exception as exception:
+            fail(
+                EXIT_DEPENDENCY,
+                "pixel_seal_dependency_unavailable",
+                f"PixelSeal dependencies are unavailable: {exception}",
+            )
+
+        model_path = Path(config["pixelSealModelPath"])
+        if not model_path.is_file():
+            fail(
+                EXIT_DEPENDENCY,
+                "pixel_seal_model_unavailable",
+                f"PixelSeal checkpoint is unavailable: {model_path}",
+            )
+
+        requested_device = config["pixelSealDevice"]
+        if requested_device == "auto":
+            if torch.cuda.is_available():
+                requested_device = "cuda"
+            elif hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
+                requested_device = "mps"
+            else:
+                requested_device = "cpu"
+        if requested_device == "cuda" and not torch.cuda.is_available():
+            fail(EXIT_DEPENDENCY, "pixel_seal_device_unavailable", "PixelSeal CUDA device is unavailable.")
+        if requested_device == "mps" and (
+            not hasattr(torch.backends, "mps") or not torch.backends.mps.is_available()
+        ):
+            fail(EXIT_DEPENDENCY, "pixel_seal_device_unavailable", "PixelSeal MPS device is unavailable.")
+
+        try:
+            card_path = Path(videoseal.__file__).resolve().parent / "cards" / "pixelseal.yaml"
+            model_config = OmegaConf.load(card_path)
+            self.model = setup_model(model_config, model_path)
+            self.model.blender.scaling_w = config["pixelSealStrengthPercent"] / 100
+            self.model.to(torch.device(requested_device)).eval()
+        except Exception as exception:
+            fail(
+                EXIT_DEPENDENCY,
+                "pixel_seal_model_unavailable",
+                f"PixelSeal could not load its checkpoint: {exception}",
+            )
+        self.torch = torch
+        message_bytes = bytes.fromhex(config["pixelSealMessage"])
+        message_bits = np.unpackbits(np.frombuffer(message_bytes, dtype=np.uint8)).astype(np.float32)
+        self.message = torch.from_numpy(message_bits).unsqueeze(0)
+
+    def embed(self, image: Image.Image) -> Image.Image:
+        """Embed the configured message into one RGB page image."""
+        pixels = np.asarray(image.convert("RGB"), dtype=np.uint8).copy()
+        tensor = (
+            self.torch.from_numpy(pixels)
+            .permute(2, 0, 1)
+            .unsqueeze(0)
+            .float()
+            .div(255)
+        )
+        try:
+            with self.torch.inference_mode():
+                output = self.model.embed(
+                    tensor,
+                    self.message,
+                    is_video=False,
+                    lowres_attenuation=True,
+                )["imgs_w"]
+            marked = (
+                output.detach()
+                .clamp(0, 1)
+                .mul(255)
+                .round()
+                .to(self.torch.uint8)
+                .squeeze(0)
+                .permute(1, 2, 0)
+                .cpu()
+                .numpy()
+            )
+        except Exception as exception:
+            fail(
+                EXIT_DEPENDENCY,
+                "pixel_seal_embedding_failed",
+                f"PixelSeal could not watermark a rendered page: {exception}",
+            )
+        return Image.fromarray(marked, "RGB")
+
+
+class PageEmbedder(Protocol):
+    def embed(self, image: Image.Image) -> Image.Image:
+        """Embed an invisible message into one rendered page."""
+        ...
+
+
+def encode_jpeg(image: Image.Image, quality: int) -> bytes:
+    output = BytesIO()
+    image.save(output, format="JPEG", quality=quality, optimize=True)
+    return output.getvalue()
+
+
+def validate_page_geometry(page: pymupdf.Page, config: dict[str, Any]) -> None:
+    """Reject invalid or unsafe pages before loading PixelSeal or rendering output."""
+    visible_rect = page.rect
+    if visible_rect.is_empty or visible_rect.is_infinite:
+        fail(EXIT_MALFORMED, "invalid_page", "A PDF page has invalid visible dimensions.")
+
+    pixel_width = math.ceil(visible_rect.width * config["dpi"] / 72)
+    pixel_height = math.ceil(visible_rect.height * config["dpi"] / 72)
+    if (
+        pixel_width > MAX_PIXEL_DIMENSION
+        or pixel_height > MAX_PIXEL_DIMENSION
+        or pixel_width * pixel_height > MAX_PAGE_PIXELS
+        or (
+            config["pixelSealEnabled"]
+            and pixel_width * pixel_height > MAX_PIXEL_SEAL_PAGE_PIXELS
+        )
+    ):
+        fail(
+            EXIT_PAGE_TOO_LARGE,
+            "page_too_large",
+            (
+                f"A PDF page would render to {pixel_width} by {pixel_height} pixels; "
+                "reduce the raster DPI or use a smaller page."
+            ),
+        )
+
+
 def rasterize(
     input_path: Path,
     output_path: Path,
     config: dict[str, Any],
     preview_image_path: Path | None = None,
+    pixel_seal_factory: Callable[[dict[str, Any]], PageEmbedder] = PixelSealEmbedder,
 ) -> None:
+    rng = random.Random(bytes.fromhex(config["randomSeed"]))
     try:
         source = pymupdf.open(input_path)
     except Exception as exception:
@@ -234,29 +560,14 @@ def rasterize(
                 f"The PDF has {page_count} pages; the configured limit is {config['maxPages']}.",
             )
 
-        tile = make_watermark_tile(config["text"], config)
+        for source_page in source:
+            validate_page_geometry(source_page, config)
+
+        pixel_seal = pixel_seal_factory(config) if config["pixelSealEnabled"] else None
         output = pymupdf.open()
         try:
             for source_page in source:
                 visible_rect = source_page.rect
-                if visible_rect.is_empty or visible_rect.is_infinite:
-                    fail(EXIT_MALFORMED, "invalid_page", "A PDF page has invalid visible dimensions.")
-
-                pixel_width = math.ceil(visible_rect.width * config["dpi"] / 72)
-                pixel_height = math.ceil(visible_rect.height * config["dpi"] / 72)
-                if (
-                    pixel_width > MAX_PIXEL_DIMENSION
-                    or pixel_height > MAX_PIXEL_DIMENSION
-                    or pixel_width * pixel_height > MAX_PAGE_PIXELS
-                ):
-                    fail(
-                        EXIT_PAGE_TOO_LARGE,
-                        "page_too_large",
-                        (
-                            f"A PDF page would render to {pixel_width} by {pixel_height} pixels; "
-                            "reduce the raster DPI or use a smaller page."
-                        ),
-                    )
 
                 # Render the original and its annotations first. The watermark is then
                 # placed above that image, so annotations cannot cover the baked mark.
@@ -266,33 +577,17 @@ def rasterize(
                     alpha=False,
                     annots=True,
                 )
-                scratch = pymupdf.open()
-                try:
-                    scratch_page = scratch.new_page(
-                        width=visible_rect.width,
-                        height=visible_rect.height,
-                    )
-                    scratch_page.insert_image(
-                        scratch_page.rect,
-                        pixmap=original_pixmap,
-                        keep_proportion=False,
-                        overlay=True,
-                    )
-                    add_staggered_watermarks(scratch_page, tile, config)
-                    marked_pixmap = scratch_page.get_pixmap(
-                        dpi=config["dpi"],
-                        colorspace=pymupdf.csRGB,
-                        alpha=False,
-                        annots=False,
-                    )
-                    jpeg = marked_pixmap.tobytes(
-                        "jpeg",
-                        jpg_quality=config["jpegQuality"],
-                    )
-                    if preview_image_path is not None and source_page.number == 0:
-                        preview_image_path.write_bytes(jpeg)
-                finally:
-                    scratch.close()
+                marked_image = render_visible_watermark(
+                    original_pixmap,
+                    visible_rect,
+                    config,
+                    rng,
+                )
+                if pixel_seal is not None:
+                    marked_image = pixel_seal.embed(marked_image)
+                jpeg = encode_jpeg(marked_image, config["jpegQuality"])
+                if preview_image_path is not None and source_page.number == 0:
+                    preview_image_path.write_bytes(jpeg)
 
                 output_page = output.new_page(
                     width=visible_rect.width,
@@ -313,7 +608,6 @@ def rasterize(
             fail(EXIT_MALFORMED, "render_failed", f"The PDF could not be rendered: {exception}")
         finally:
             output.close()
-            tile.close()
 
 
 def main() -> None:

@@ -25,6 +25,8 @@ use Psr\Log\LoggerInterface;
 
 #[AllowMockObjectsWithoutExpectations]
 final class RendererServiceTest extends TestCase {
+	private const WATERMARK_ID = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
+
 	/** @return iterable<string, array{int, string, int}> */
 	public static function failureProvider(): iterable {
 		yield 'encrypted' => [10, 'encrypted_pdf', Http::STATUS_UNPROCESSABLE_ENTITY];
@@ -46,7 +48,7 @@ final class RendererServiceTest extends TestCase {
 		$renderer = new RendererService($this->createConfig(), $runner);
 
 		try {
-			$renderer->render('/input.pdf', '/missing-output.pdf', 'Confidential');
+			$renderer->render('/input.pdf', '/missing-output.pdf', 'Confidential', self::WATERMARK_ID);
 			self::fail('Expected WatermarkException');
 		} catch (WatermarkException $exception) {
 			self::assertSame($code, $exception->getErrorCode());
@@ -61,7 +63,7 @@ final class RendererServiceTest extends TestCase {
 		$renderer = new RendererService($this->createConfig(), $runner);
 
 		try {
-			$renderer->render('/input.pdf', '/output.pdf', 'Confidential');
+			$renderer->render('/input.pdf', '/output.pdf', 'Confidential', self::WATERMARK_ID);
 			self::fail('Expected WatermarkException');
 		} catch (WatermarkException $exception) {
 			self::assertSame('render_timeout', $exception->getErrorCode());
@@ -74,7 +76,7 @@ final class RendererServiceTest extends TestCase {
 		$renderer = new RendererService($this->createConfig(), $runner);
 
 		try {
-			$renderer->render('/input.pdf', '/output.pdf', 'Confidential');
+			$renderer->render('/input.pdf', '/output.pdf', 'Confidential', self::WATERMARK_ID);
 			self::fail('Expected WatermarkException');
 		} catch (WatermarkException $exception) {
 			self::assertSame('renderer_unavailable', $exception->getErrorCode());
@@ -90,7 +92,7 @@ final class RendererServiceTest extends TestCase {
 
 		try {
 			$renderer = new RendererService($this->createConfig(), $runner);
-			$renderer->render('/input.pdf', $output, 'Confidential');
+			$renderer->render('/input.pdf', $output, 'Confidential', self::WATERMARK_ID);
 			$input = json_decode($runner->lastInput, true, flags: JSON_THROW_ON_ERROR);
 
 			self::assertSame(ConfigService::DEFAULT_WATERMARK_FONT_SIZE, $input['watermarkFontSize']);
@@ -109,6 +111,19 @@ final class RendererServiceTest extends TestCase {
 				ConfigService::DEFAULT_WATERMARK_VERTICAL_INTERVAL,
 				$input['watermarkVerticalInterval'],
 			);
+			self::assertSame(ConfigService::DEFAULT_WATERMARK_OPACITY_VARIATION, $input['watermarkOpacityVariationPercent']);
+			self::assertSame(ConfigService::DEFAULT_WATERMARK_SPACING_VARIATION, $input['watermarkSpacingVariationPercent']);
+			self::assertSame(ConfigService::DEFAULT_WATERMARK_POSITION_JITTER, $input['watermarkPositionJitterPoints']);
+			self::assertSame(ConfigService::DEFAULT_WATERMARK_BLUR_RADIUS, $input['watermarkBlurRadiusPixels']);
+			self::assertSame(ConfigService::DEFAULT_WATERMARK_BLUR_OPACITY, $input['watermarkBlurOpacityPercent']);
+			self::assertFalse($input['watermarkDistortionEnabled']);
+			self::assertSame(ConfigService::DEFAULT_WATERMARK_DISTORTION_STRENGTH, $input['watermarkDistortionStrengthPixels']);
+			self::assertSame(self::WATERMARK_ID, $input['randomSeed']);
+			self::assertTrue($input['pixelSealEnabled']);
+			self::assertSame(self::WATERMARK_ID, $input['pixelSealMessage']);
+			self::assertSame(ConfigService::DEFAULT_PIXEL_SEAL_MODEL_PATH, $input['pixelSealModelPath']);
+			self::assertSame(ConfigService::DEFAULT_PIXEL_SEAL_STRENGTH, $input['pixelSealStrengthPercent']);
+			self::assertSame(ConfigService::DEFAULT_PIXEL_SEAL_DEVICE, $input['pixelSealDevice']);
 		} finally {
 			@unlink($output);
 		}
@@ -146,6 +161,9 @@ final class RendererServiceTest extends TestCase {
 			self::assertSame(210, $input['watermarkMinimumHorizontalInterval']);
 			self::assertSame(70, $input['watermarkHorizontalGap']);
 			self::assertSame(120, $input['watermarkVerticalInterval']);
+			self::assertFalse($input['pixelSealEnabled']);
+			self::assertNull($input['pixelSealMessage']);
+			self::assertSame(hash('sha256', 'files-watermark-admin-preview'), $input['randomSeed']);
 			self::assertSame($previewImage, $runner->lastCommand[4]);
 			self::assertSame('%JPEG-preview', file_get_contents($previewImage));
 		} finally {
@@ -180,16 +198,34 @@ final class RendererServiceTest extends TestCase {
 	}
 
 	public function testAvailabilityChecksPinnedVersionRange(): void {
-		$runner = new FakeProcessRunner(new ProcessResult(0, "1.28.0\n", ''));
+		$runner = new FakeProcessRunner(new ProcessResult(
+			0,
+			'{"pymupdf":"1.28.0","numpy":"2.0.0","pillow":"11.0.0","pixelSeal":true}',
+			'',
+		));
 		$status = (new RendererService($this->createConfig(), $runner))->checkAvailability();
 
 		self::assertTrue($status['available']);
 		self::assertSame('1.28.0', $status['version']);
-		self::assertSame([
-			ConfigService::DEFAULT_PYTHON,
-			'-c',
-			'import pymupdf; print(pymupdf.__version__)',
-		], $runner->lastCommand);
+		self::assertSame(ConfigService::DEFAULT_PYTHON, $runner->lastCommand[0]);
+		self::assertSame('-c', $runner->lastCommand[1]);
+		self::assertStringContainsString('import videoseal', $runner->lastCommand[2]);
+		self::assertSame(ConfigService::DEFAULT_PIXEL_SEAL_MODEL_PATH, $runner->lastCommand[3]);
+		self::assertSame('1', $runner->lastCommand[4]);
+		self::assertSame('auto', $runner->lastCommand[5]);
+	}
+
+	public function testRejectsInvalidInvisibleWatermarkIdentifierBeforeStartingRenderer(): void {
+		$runner = new FakeProcessRunner(new ProcessResult(0, '', ''));
+		$renderer = new RendererService($this->createConfig(), $runner);
+
+		$this->expectException(WatermarkException::class);
+		$this->expectExceptionMessage('Watermark identifier must contain exactly 256 bits.');
+		try {
+			$renderer->render('/input.pdf', '/output.pdf', 'Confidential', 'too-short');
+		} finally {
+			self::assertSame([], $runner->lastCommand);
+		}
 	}
 
 	private function createConfig(): ConfigService {

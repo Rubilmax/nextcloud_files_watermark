@@ -2,3 +2,8 @@
 # SPDX-License-Identifier: CC0-1.0
 
 PyMuPDF>=1.28.0,<1.29.0
+numpy>=1.26.0,<3.0.0
+Pillow>=10.0.0,<13.0.0
+torch>=2.3.1,<3.0.0
+torchvision>=0.18.0,<1.0.0
+videoseal @ git+https://github.com/facebookresearch/videoseal.git@870ca7fb33578b90f14c602016b6c2788096226e

@@ -32,7 +32,14 @@ final class RendererService {
 	) {
 	}
 
-	public function render(string $inputPath, string $outputPath, string $text): void {
+	public function render(string $inputPath, string $outputPath, string $text, string $watermarkId): void {
+		if (preg_match('/^[0-9a-f]{64}$/', $watermarkId) !== 1) {
+			throw new WatermarkException(
+				'Watermark identifier must contain exactly 256 bits.',
+				'invalid_render_request',
+				Http::STATUS_BAD_REQUEST,
+			);
+		}
 		$this->renderConfigured(
 			$inputPath,
 			$outputPath,
@@ -44,6 +51,8 @@ final class RendererService {
 			$this->config->getWatermarkMinimumHorizontalInterval(),
 			$this->config->getWatermarkHorizontalGap(),
 			$this->config->getWatermarkVerticalInterval(),
+			$watermarkId,
+			$this->config->isPixelSealEnabled(),
 		);
 	}
 
@@ -93,6 +102,8 @@ final class RendererService {
 			$minimumHorizontalInterval,
 			$horizontalGap,
 			$verticalInterval,
+			hash('sha256', 'files-watermark-admin-preview'),
+			false,
 			$previewImagePath,
 		);
 	}
@@ -108,6 +119,8 @@ final class RendererService {
 		int $minimumHorizontalInterval,
 		int $horizontalGap,
 		int $verticalInterval,
+		string $watermarkId,
+		bool $pixelSealEnabled,
 		?string $previewImagePath = null,
 	): void {
 		try {
@@ -123,6 +136,19 @@ final class RendererService {
 				'watermarkMinimumHorizontalInterval' => $minimumHorizontalInterval,
 				'watermarkHorizontalGap' => $horizontalGap,
 				'watermarkVerticalInterval' => $verticalInterval,
+				'watermarkOpacityVariationPercent' => $this->config->getWatermarkOpacityVariationPercent(),
+				'watermarkSpacingVariationPercent' => $this->config->getWatermarkSpacingVariationPercent(),
+				'watermarkPositionJitterPoints' => $this->config->getWatermarkPositionJitterPoints(),
+				'watermarkBlurRadiusPixels' => $this->config->getWatermarkBlurRadiusPixels(),
+				'watermarkBlurOpacityPercent' => $this->config->getWatermarkBlurOpacityPercent(),
+				'watermarkDistortionEnabled' => $this->config->isWatermarkDistortionEnabled(),
+				'watermarkDistortionStrengthPixels' => $this->config->getWatermarkDistortionStrengthPixels(),
+				'randomSeed' => $watermarkId,
+				'pixelSealEnabled' => $pixelSealEnabled,
+				'pixelSealMessage' => $pixelSealEnabled ? $watermarkId : null,
+				'pixelSealModelPath' => $this->config->getPixelSealModelPath(),
+				'pixelSealStrengthPercent' => $this->config->getPixelSealStrengthPercent(),
+				'pixelSealDevice' => $this->config->getPixelSealDevice(),
 			], JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE);
 			$command = [
 				$this->config->getPythonExecutable(),
@@ -212,20 +238,72 @@ final class RendererService {
 		}
 
 		try {
+			$probe = <<<'PYTHON'
+import json
+import os
+import sys
+
+import numpy
+import pymupdf
+from PIL import __version__ as pillow_version
+
+status = {
+    "pymupdf": pymupdf.__version__,
+    "numpy": numpy.__version__,
+    "pillow": pillow_version,
+    "pixelSeal": False,
+}
+if sys.argv[2] == "1":
+    import torch
+    import videoseal
+    from omegaconf import OmegaConf
+    from videoseal.utils.cfg import setup_model
+
+    if not os.path.isfile(sys.argv[1]) or not os.access(sys.argv[1], os.R_OK):
+        raise FileNotFoundError(f"PixelSeal checkpoint is unavailable: {sys.argv[1]}")
+    if sys.argv[3] == "cuda" and not torch.cuda.is_available():
+        raise RuntimeError("PixelSeal CUDA device is unavailable.")
+    if sys.argv[3] == "mps" and (
+        not hasattr(torch.backends, "mps") or not torch.backends.mps.is_available()
+    ):
+        raise RuntimeError("PixelSeal MPS device is unavailable.")
+    status["pixelSeal"] = True
+    status["torch"] = torch.__version__
+    status["videoseal"] = getattr(videoseal, "__version__", "unknown")
+print(json.dumps(status, separators=(",", ":")))
+PYTHON;
 			$result = $this->processRunner->run([
 				$this->config->getPythonExecutable(),
 				'-c',
-				'import pymupdf; print(pymupdf.__version__)',
+				$probe,
+				$this->config->getPixelSealModelPath(),
+				$this->config->isPixelSealEnabled() ? '1' : '0',
+				$this->config->getPixelSealDevice(),
 			], '', 10);
 		} catch (\Throwable $exception) {
 			return ['available' => false, 'message' => $exception->getMessage()];
 		}
 
-		$version = trim($result->stdout);
-		if ($result->exitCode !== 0 || $version === '') {
+		try {
+			$status = json_decode(trim($result->stdout), true, flags: JSON_THROW_ON_ERROR);
+		} catch (JsonException) {
+			$status = null;
+		}
+		$version = is_array($status) && isset($status['pymupdf']) && is_string($status['pymupdf'])
+			? $status['pymupdf']
+			: '';
+		$pixelSealAvailable = is_array($status) && ($status['pixelSeal'] ?? false) === true;
+		if ($result->exitCode !== 0 || $version === ''
+			|| ($this->config->isPixelSealEnabled() && !$pixelSealAvailable)) {
 			return [
 				'available' => false,
-				'message' => $this->readRendererMessage($result->stderr) ?? 'Configured Python cannot import PyMuPDF.',
+				'message' => $this->config->isPixelSealEnabled()
+					? sprintf(
+						'Configured Python cannot load PixelSeal, read its checkpoint at %s, or use device %s.',
+						$this->config->getPixelSealModelPath(),
+						$this->config->getPixelSealDevice(),
+					)
+					: 'Configured Python cannot import the renderer dependencies.',
 			];
 		}
 
@@ -240,7 +318,9 @@ final class RendererService {
 
 		return [
 			'available' => true,
-			'message' => sprintf('PyMuPDF %s is available.', $version),
+			'message' => $this->config->isPixelSealEnabled()
+				? sprintf('PyMuPDF %s and PixelSeal are available.', $version)
+				: sprintf('PyMuPDF %s is available; PixelSeal is disabled.', $version),
 			'version' => $version,
 		];
 	}

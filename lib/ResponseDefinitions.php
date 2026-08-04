@@ -16,6 +16,7 @@ namespace OCA\FilesWatermark;
  *     name: string,
  *     mime: string,
  *     size: int|float,
+ *     invisibleWatermarkId: string|null,
  * }
  * @psalm-type FilesWatermarkError = array{
  *     error: array{code: string, message: string},

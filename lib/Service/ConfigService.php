@@ -27,6 +27,17 @@ final class ConfigService {
 	public const KEY_WATERMARK_MIN_HORIZONTAL_INTERVAL = 'watermark_minimum_horizontal_interval_points';
 	public const KEY_WATERMARK_HORIZONTAL_GAP = 'watermark_horizontal_gap_points';
 	public const KEY_WATERMARK_VERTICAL_INTERVAL = 'watermark_vertical_interval_points';
+	public const KEY_WATERMARK_OPACITY_VARIATION = 'watermark_opacity_variation_percent';
+	public const KEY_WATERMARK_SPACING_VARIATION = 'watermark_spacing_variation_percent';
+	public const KEY_WATERMARK_POSITION_JITTER = 'watermark_position_jitter_points';
+	public const KEY_WATERMARK_BLUR_RADIUS = 'watermark_blur_radius_pixels';
+	public const KEY_WATERMARK_BLUR_OPACITY = 'watermark_blur_opacity_percent';
+	public const KEY_WATERMARK_DISTORTION_ENABLED = 'watermark_distortion_enabled';
+	public const KEY_WATERMARK_DISTORTION_STRENGTH = 'watermark_distortion_strength_pixels';
+	public const KEY_PIXEL_SEAL_ENABLED = 'pixel_seal_enabled';
+	public const KEY_PIXEL_SEAL_MODEL_PATH = 'pixel_seal_model_path';
+	public const KEY_PIXEL_SEAL_STRENGTH = 'pixel_seal_strength_percent';
+	public const KEY_PIXEL_SEAL_DEVICE = 'pixel_seal_device';
 
 	public const DEFAULT_PYTHON = '/opt/files-watermark-python/bin/python';
 	public const DEFAULT_DPI = 180;
@@ -40,6 +51,17 @@ final class ConfigService {
 	public const DEFAULT_WATERMARK_MIN_HORIZONTAL_INTERVAL = 145;
 	public const DEFAULT_WATERMARK_HORIZONTAL_GAP = 48;
 	public const DEFAULT_WATERMARK_VERTICAL_INTERVAL = 78;
+	public const DEFAULT_WATERMARK_OPACITY_VARIATION = 5;
+	public const DEFAULT_WATERMARK_SPACING_VARIATION = 10;
+	public const DEFAULT_WATERMARK_POSITION_JITTER = 8;
+	public const DEFAULT_WATERMARK_BLUR_RADIUS = 6;
+	public const DEFAULT_WATERMARK_BLUR_OPACITY = 80;
+	public const DEFAULT_WATERMARK_DISTORTION_ENABLED = false;
+	public const DEFAULT_WATERMARK_DISTORTION_STRENGTH = 12;
+	public const DEFAULT_PIXEL_SEAL_ENABLED = true;
+	public const DEFAULT_PIXEL_SEAL_MODEL_PATH = '/opt/files-watermark-python/models/pixelseal.pth';
+	public const DEFAULT_PIXEL_SEAL_STRENGTH = 20;
+	public const DEFAULT_PIXEL_SEAL_DEVICE = 'auto';
 
 	/** @var array<string, array{int, int, int}> */
 	private const INTEGER_SETTINGS = [
@@ -53,7 +75,22 @@ final class ConfigService {
 		self::KEY_WATERMARK_MIN_HORIZONTAL_INTERVAL => [self::DEFAULT_WATERMARK_MIN_HORIZONTAL_INTERVAL, 20, 2000],
 		self::KEY_WATERMARK_HORIZONTAL_GAP => [self::DEFAULT_WATERMARK_HORIZONTAL_GAP, 0, 1000],
 		self::KEY_WATERMARK_VERTICAL_INTERVAL => [self::DEFAULT_WATERMARK_VERTICAL_INTERVAL, 20, 2000],
+		self::KEY_WATERMARK_OPACITY_VARIATION => [self::DEFAULT_WATERMARK_OPACITY_VARIATION, 0, 50],
+		self::KEY_WATERMARK_SPACING_VARIATION => [self::DEFAULT_WATERMARK_SPACING_VARIATION, 0, 40],
+		self::KEY_WATERMARK_POSITION_JITTER => [self::DEFAULT_WATERMARK_POSITION_JITTER, 0, 100],
+		self::KEY_WATERMARK_BLUR_RADIUS => [self::DEFAULT_WATERMARK_BLUR_RADIUS, 0, 64],
+		self::KEY_WATERMARK_BLUR_OPACITY => [self::DEFAULT_WATERMARK_BLUR_OPACITY, 0, 100],
+		self::KEY_WATERMARK_DISTORTION_STRENGTH => [self::DEFAULT_WATERMARK_DISTORTION_STRENGTH, 0, 128],
+		self::KEY_PIXEL_SEAL_STRENGTH => [self::DEFAULT_PIXEL_SEAL_STRENGTH, 1, 100],
 	];
+
+	/** @var array<string, bool> */
+	private const BOOLEAN_SETTINGS = [
+		self::KEY_WATERMARK_DISTORTION_ENABLED => self::DEFAULT_WATERMARK_DISTORTION_ENABLED,
+		self::KEY_PIXEL_SEAL_ENABLED => self::DEFAULT_PIXEL_SEAL_ENABLED,
+	];
+
+	private const PIXEL_SEAL_DEVICES = ['auto', 'cpu', 'cuda', 'mps'];
 
 	/** @var array<string, true> */
 	private array $warnedKeys = [];
@@ -181,6 +218,101 @@ final class ConfigService {
 		);
 	}
 
+	public function getWatermarkOpacityVariationPercent(): int {
+		return $this->getBoundedInt(
+			self::KEY_WATERMARK_OPACITY_VARIATION,
+			self::DEFAULT_WATERMARK_OPACITY_VARIATION,
+			0,
+			50,
+		);
+	}
+
+	public function getWatermarkSpacingVariationPercent(): int {
+		return $this->getBoundedInt(
+			self::KEY_WATERMARK_SPACING_VARIATION,
+			self::DEFAULT_WATERMARK_SPACING_VARIATION,
+			0,
+			40,
+		);
+	}
+
+	public function getWatermarkPositionJitterPoints(): int {
+		return $this->getBoundedInt(
+			self::KEY_WATERMARK_POSITION_JITTER,
+			self::DEFAULT_WATERMARK_POSITION_JITTER,
+			0,
+			100,
+		);
+	}
+
+	public function getWatermarkBlurRadiusPixels(): int {
+		return $this->getBoundedInt(
+			self::KEY_WATERMARK_BLUR_RADIUS,
+			self::DEFAULT_WATERMARK_BLUR_RADIUS,
+			0,
+			64,
+		);
+	}
+
+	public function getWatermarkBlurOpacityPercent(): int {
+		return $this->getBoundedInt(
+			self::KEY_WATERMARK_BLUR_OPACITY,
+			self::DEFAULT_WATERMARK_BLUR_OPACITY,
+			0,
+			100,
+		);
+	}
+
+	public function isWatermarkDistortionEnabled(): bool {
+		return $this->getBoolean(self::KEY_WATERMARK_DISTORTION_ENABLED, self::DEFAULT_WATERMARK_DISTORTION_ENABLED);
+	}
+
+	public function getWatermarkDistortionStrengthPixels(): int {
+		return $this->getBoundedInt(
+			self::KEY_WATERMARK_DISTORTION_STRENGTH,
+			self::DEFAULT_WATERMARK_DISTORTION_STRENGTH,
+			0,
+			128,
+		);
+	}
+
+	public function isPixelSealEnabled(): bool {
+		return $this->getBoolean(self::KEY_PIXEL_SEAL_ENABLED, self::DEFAULT_PIXEL_SEAL_ENABLED);
+	}
+
+	public function getPixelSealModelPath(): string {
+		$value = trim($this->config->getAppValueString(
+			self::KEY_PIXEL_SEAL_MODEL_PATH,
+			self::DEFAULT_PIXEL_SEAL_MODEL_PATH,
+		));
+		if ($value === '' || str_contains($value, "\0") || !str_starts_with($value, '/')) {
+			$this->warnInvalid(self::KEY_PIXEL_SEAL_MODEL_PATH, $value, self::DEFAULT_PIXEL_SEAL_MODEL_PATH);
+			return self::DEFAULT_PIXEL_SEAL_MODEL_PATH;
+		}
+		return $value;
+	}
+
+	public function getPixelSealStrengthPercent(): int {
+		return $this->getBoundedInt(
+			self::KEY_PIXEL_SEAL_STRENGTH,
+			self::DEFAULT_PIXEL_SEAL_STRENGTH,
+			1,
+			100,
+		);
+	}
+
+	public function getPixelSealDevice(): string {
+		$value = strtolower(trim($this->config->getAppValueString(
+			self::KEY_PIXEL_SEAL_DEVICE,
+			self::DEFAULT_PIXEL_SEAL_DEVICE,
+		)));
+		if (!in_array($value, self::PIXEL_SEAL_DEVICES, true)) {
+			$this->warnInvalid(self::KEY_PIXEL_SEAL_DEVICE, $value, self::DEFAULT_PIXEL_SEAL_DEVICE);
+			return self::DEFAULT_PIXEL_SEAL_DEVICE;
+		}
+		return $value;
+	}
+
 	/** @return array<string, string> */
 	public function getAdminSettings(): array {
 		return [
@@ -193,6 +325,17 @@ final class ConfigService {
 			self::KEY_WATERMARK_MIN_HORIZONTAL_INTERVAL => (string)$this->getWatermarkMinimumHorizontalInterval(),
 			self::KEY_WATERMARK_HORIZONTAL_GAP => (string)$this->getWatermarkHorizontalGap(),
 			self::KEY_WATERMARK_VERTICAL_INTERVAL => (string)$this->getWatermarkVerticalInterval(),
+			self::KEY_WATERMARK_OPACITY_VARIATION => (string)$this->getWatermarkOpacityVariationPercent(),
+			self::KEY_WATERMARK_SPACING_VARIATION => (string)$this->getWatermarkSpacingVariationPercent(),
+			self::KEY_WATERMARK_POSITION_JITTER => (string)$this->getWatermarkPositionJitterPoints(),
+			self::KEY_WATERMARK_BLUR_RADIUS => (string)$this->getWatermarkBlurRadiusPixels(),
+			self::KEY_WATERMARK_BLUR_OPACITY => (string)$this->getWatermarkBlurOpacityPercent(),
+			self::KEY_WATERMARK_DISTORTION_ENABLED => $this->isWatermarkDistortionEnabled() ? '1' : '0',
+			self::KEY_WATERMARK_DISTORTION_STRENGTH => (string)$this->getWatermarkDistortionStrengthPixels(),
+			self::KEY_PIXEL_SEAL_ENABLED => $this->isPixelSealEnabled() ? '1' : '0',
+			self::KEY_PIXEL_SEAL_MODEL_PATH => $this->getPixelSealModelPath(),
+			self::KEY_PIXEL_SEAL_STRENGTH => (string)$this->getPixelSealStrengthPercent(),
+			self::KEY_PIXEL_SEAL_DEVICE => $this->getPixelSealDevice(),
 			self::KEY_MAX_SOURCE_MIB => (string)$this->getMaximumSourceSizeMiB(),
 			self::KEY_MAX_PAGES => (string)$this->getMaximumPages(),
 			self::KEY_TIMEOUT => (string)$this->getTimeoutSeconds(),
@@ -201,13 +344,16 @@ final class ConfigService {
 
 	/** Persist and return one normalized administration setting. */
 	public function setAdminSetting(string $key, mixed $value): string {
-		if ($key === self::KEY_PYTHON) {
+		if ($key === self::KEY_PYTHON || $key === self::KEY_PIXEL_SEAL_MODEL_PATH) {
 			if (!is_string($value)) {
-				throw new InvalidArgumentException('Python executable must be text.');
+				throw new InvalidArgumentException('Executable and model paths must be text.');
 			}
 			$normalized = trim($value);
-			if ($normalized === '' || str_contains($normalized, "\0")) {
-				throw new InvalidArgumentException('Python executable must not be empty.');
+			if ($normalized === '' || str_contains($normalized, "\0")
+				|| ($key === self::KEY_PIXEL_SEAL_MODEL_PATH && !str_starts_with($normalized, '/'))) {
+				throw new InvalidArgumentException($key === self::KEY_PYTHON
+					? 'Python executable must not be empty.'
+					: 'PixelSeal model path must be an absolute path.');
 			}
 		} elseif ($key === self::KEY_WATERMARK_COLOR) {
 			if (!is_string($value)) {
@@ -216,6 +362,17 @@ final class ConfigService {
 			$normalized = strtolower(trim($value));
 			if (preg_match('/^#[0-9a-f]{6}$/', $normalized) !== 1) {
 				throw new InvalidArgumentException('Watermark color must be a six-digit hexadecimal color such as #333333.');
+			}
+		} elseif (isset(self::BOOLEAN_SETTINGS[$key])) {
+			$normalized = match (true) {
+				$value === true, $value === 1, $value === '1', $value === 'true' => '1',
+				$value === false, $value === 0, $value === '0', $value === 'false' => '0',
+				default => throw new InvalidArgumentException(sprintf('%s must be enabled or disabled.', $key)),
+			};
+		} elseif ($key === self::KEY_PIXEL_SEAL_DEVICE) {
+			$normalized = is_string($value) ? strtolower(trim($value)) : '';
+			if (!in_array($normalized, self::PIXEL_SEAL_DEVICES, true)) {
+				throw new InvalidArgumentException('PixelSeal device must be auto, cpu, cuda, or mps.');
 			}
 		} elseif (isset(self::INTEGER_SETTINGS[$key])) {
 			[, $minimum, $maximum] = self::INTEGER_SETTINGS[$key];
@@ -254,24 +411,28 @@ final class ConfigService {
 		if (preg_match('/^#[0-9a-fA-F]{6}$/', $color) !== 1) {
 			$errors[] = sprintf('%s must be a six-digit hexadecimal color such as #333333.', self::KEY_WATERMARK_COLOR);
 		}
+		$modelPath = trim($this->config->getAppValueString(
+			self::KEY_PIXEL_SEAL_MODEL_PATH,
+			self::DEFAULT_PIXEL_SEAL_MODEL_PATH,
+		));
+		if ($modelPath === '' || str_contains($modelPath, "\0") || !str_starts_with($modelPath, '/')) {
+			$errors[] = sprintf('%s must be an absolute path.', self::KEY_PIXEL_SEAL_MODEL_PATH);
+		}
+		$device = strtolower(trim($this->config->getAppValueString(
+			self::KEY_PIXEL_SEAL_DEVICE,
+			self::DEFAULT_PIXEL_SEAL_DEVICE,
+		)));
+		if (!in_array($device, self::PIXEL_SEAL_DEVICES, true)) {
+			$errors[] = sprintf('%s must be auto, cpu, cuda, or mps.', self::KEY_PIXEL_SEAL_DEVICE);
+		}
+		foreach (self::BOOLEAN_SETTINGS as $key => $default) {
+			$raw = $this->config->getAppValueString($key, $default ? '1' : '0');
+			if ($raw !== '0' && $raw !== '1') {
+				$errors[] = sprintf('%s must be 0 or 1.', $key);
+			}
+		}
 
-		foreach ([
-			[self::KEY_DPI, self::DEFAULT_DPI, 96, 300],
-			[self::KEY_MAX_SOURCE_MIB, self::DEFAULT_MAX_SOURCE_MIB, 1, 1024],
-			[self::KEY_MAX_PAGES, self::DEFAULT_MAX_PAGES, 1, 5000],
-			[self::KEY_TIMEOUT, self::DEFAULT_TIMEOUT, 10, 3600],
-			[self::KEY_WATERMARK_FONT_SIZE, self::DEFAULT_WATERMARK_FONT_SIZE, 8, 144],
-			[self::KEY_WATERMARK_OPACITY, self::DEFAULT_WATERMARK_OPACITY, 1, 100],
-			[self::KEY_WATERMARK_ANGLE, self::DEFAULT_WATERMARK_ANGLE, -180, 180],
-			[
-				self::KEY_WATERMARK_MIN_HORIZONTAL_INTERVAL,
-				self::DEFAULT_WATERMARK_MIN_HORIZONTAL_INTERVAL,
-				20,
-				2000,
-			],
-			[self::KEY_WATERMARK_HORIZONTAL_GAP, self::DEFAULT_WATERMARK_HORIZONTAL_GAP, 0, 1000],
-			[self::KEY_WATERMARK_VERTICAL_INTERVAL, self::DEFAULT_WATERMARK_VERTICAL_INTERVAL, 20, 2000],
-		] as [$key, $default, $minimum, $maximum]) {
+		foreach (self::INTEGER_SETTINGS as $key => [$default, $minimum, $maximum]) {
 			$raw = $this->config->getAppValueString(
 				$key,
 				(string)$default,
@@ -298,6 +459,15 @@ final class ConfigService {
 		}
 
 		return $value;
+	}
+
+	private function getBoolean(string $key, bool $default): bool {
+		$raw = $this->config->getAppValueString($key, $default ? '1' : '0');
+		if ($raw !== '0' && $raw !== '1') {
+			$this->warnInvalid($key, $raw, $default ? '1' : '0');
+			return $default;
+		}
+		return $raw === '1';
 	}
 
 	private function warnInvalid(string $key, string $value, int|string $default): void {

@@ -25,9 +25,11 @@ final class ConfigLexiconTest extends TestCase {
 
 		self::assertSame(Strictness::NOTICE, $lexicon->getStrictness());
 		self::assertSame([], $lexicon->getUserConfigs());
-		self::assertCount(12, $entries);
+		self::assertCount(23, $entries);
 		self::assertArrayHasKey(ConfigService::KEY_PYTHON, $entries);
 		self::assertArrayHasKey(ConfigService::KEY_WATERMARK_OPACITY, $entries);
+		self::assertArrayHasKey(ConfigService::KEY_WATERMARK_DISTORTION_ENABLED, $entries);
+		self::assertArrayHasKey(ConfigService::KEY_PIXEL_SEAL_ENABLED, $entries);
 		foreach ($entries as $entry) {
 			self::assertSame(ValueType::STRING, $entry->getValueType());
 		}

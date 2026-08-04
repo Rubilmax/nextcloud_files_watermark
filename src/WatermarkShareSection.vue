@@ -150,6 +150,22 @@
 						{{ t('files_watermark', 'Copy') }}
 					</NcButton>
 				</div>
+				<template v-if="generated?.invisibleWatermarkId">
+					<label for="files-watermark-identifier">{{ t('files_watermark', 'Invisible watermark identifier') }}</label>
+					<div class="watermark-share__url-row" data-testid="invisible-watermark-id">
+						<input
+							id="files-watermark-identifier"
+							:value="generated.invisibleWatermarkId"
+							readonly
+							type="text">
+						<NcButton variant="secondary" @click="copyInvisibleWatermarkId">
+							{{ t('files_watermark', 'Copy') }}
+						</NcButton>
+					</div>
+					<p class="watermark-share__hint">
+						{{ t('files_watermark', 'Keep this identifier to compare with a PixelSeal extraction from a distributed copy.') }}
+					</p>
+				</template>
 			</div>
 
 			<div class="watermark-share__actions">
@@ -421,6 +437,20 @@ async function copyUrl() {
 	try {
 		await copyText(publicUrl.value)
 		showSuccess(t('files_watermark', 'Link copied'))
+	} catch (caught) {
+		showError(errorMessage(caught))
+	}
+}
+
+/** Copy the identifier embedded into every page of the generated derivative. */
+async function copyInvisibleWatermarkId() {
+	const identifier = generated.value?.invisibleWatermarkId
+	if (!identifier) {
+		return
+	}
+	try {
+		await copyText(identifier)
+		showSuccess(t('files_watermark', 'Invisible watermark identifier copied'))
 	} catch (caught) {
 		showError(errorMessage(caught))
 	}

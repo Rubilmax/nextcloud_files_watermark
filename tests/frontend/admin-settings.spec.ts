@@ -22,6 +22,17 @@ const initialSettings = {
 	watermark_minimum_horizontal_interval_points: '145',
 	watermark_horizontal_gap_points: '48',
 	watermark_vertical_interval_points: '78',
+	watermark_opacity_variation_percent: '5',
+	watermark_spacing_variation_percent: '10',
+	watermark_position_jitter_points: '8',
+	watermark_blur_radius_pixels: '6',
+	watermark_blur_opacity_percent: '80',
+	watermark_distortion_enabled: '0',
+	watermark_distortion_strength_pixels: '12',
+	pixel_seal_enabled: '1',
+	pixel_seal_model_path: '/opt/files-watermark-python/models/pixelseal.pth',
+	pixel_seal_strength_percent: '20',
+	pixel_seal_device: 'auto',
 	maximum_source_size_mib: '50',
 	maximum_pages: '200',
 	timeout_seconds: '120',
@@ -63,6 +74,14 @@ vi.mock('@nextcloud/vue/components/NcInputField', () => ({
 					@input="$emit('update:modelValue', $event.target.value)">
 				<small :data-error="error" :data-success="success">{{ helperText }}</small>
 			</label>`,
+	},
+}))
+vi.mock('@nextcloud/vue/components/NcCheckboxRadioSwitch', () => ({
+	default: {
+		inheritAttrs: false,
+		props: { modelValue: Boolean },
+		emits: ['update:modelValue'],
+		template: '<label v-bind="$attrs"><input type="checkbox" :checked="modelValue" @change="$emit(\'update:modelValue\', $event.target.checked)"><slot /></label>',
 	},
 }))
 vi.mock('@nextcloud/vue/components/NcSettingsSection', () => ({
@@ -138,5 +157,16 @@ describe('AdminSettings', () => {
 		expect(mocks.showError).toHaveBeenCalledWith('Opacity must be from 1 to 100.')
 		expect(wrapper.get('[data-testid="setting-watermark_opacity_percent"] + small').text())
 			.toBe('Opacity must be from 1 to 100.')
+	})
+
+	it('saves boolean controls immediately', async () => {
+		const wrapper = render()
+		await wrapper.get('[data-testid="setting-watermark_distortion_enabled"] input').setValue(true)
+		await flushPromises()
+
+		expect(mocks.post).toHaveBeenCalledWith('/apps/files_watermark/admin/settings', {
+			key: 'watermark_distortion_enabled',
+			value: '1',
+		})
 	})
 })

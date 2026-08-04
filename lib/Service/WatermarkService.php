@@ -36,7 +36,7 @@ final class WatermarkService {
 	}
 
 	/**
-	 * @return array{id: string, path: string, name: string, mime: string, size: int|float}
+	 * @return array{id: string, path: string, name: string, mime: string, size: int|float, invisibleWatermarkId: string|null}
 	 */
 	public function generate(string $sourceId, string $sourcePath, string $text): array {
 		$user = $this->userSession->getUser();
@@ -73,9 +73,10 @@ final class WatermarkService {
 		$inputPath = $this->createTemporaryPath('.source.pdf');
 		$outputPath = null;
 		try {
+			$watermarkId = bin2hex(random_bytes(32));
 			$this->copySourceToTemporaryFile($node, $inputPath);
 			$outputPath = $this->createTemporaryPath('.watermarked.pdf');
-			$this->renderer->render($inputPath, $outputPath, $text);
+			$this->renderer->render($inputPath, $outputPath, $text, $watermarkId);
 			$generated = $this->copyResultToFolder($parent, $name, $outputPath);
 			$relativePath = $userFolder->getRelativePath($generated->getPath());
 
@@ -94,6 +95,7 @@ final class WatermarkService {
 				'name' => $generated->getName(),
 				'mime' => $generated->getMimeType(),
 				'size' => $generated->getSize(),
+				'invisibleWatermarkId' => $this->config->isPixelSealEnabled() ? $watermarkId : null,
 			];
 		} finally {
 			$this->removeTemporaryFile($inputPath);

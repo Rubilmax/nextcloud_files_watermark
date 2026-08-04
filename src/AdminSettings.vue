@@ -36,10 +36,6 @@ interface AdminValues {
 	watermark_blur_opacity_percent: string
 	watermark_distortion_enabled: string
 	watermark_distortion_strength_pixels: string
-	pixel_seal_enabled: string
-	pixel_seal_model_path: string
-	pixel_seal_strength_percent: string
-	pixel_seal_device: string
 	maximum_source_size_mib: string
 	maximum_pages: string
 	timeout_seconds: string
@@ -170,29 +166,6 @@ const visibleDefinitions: SettingDefinition[] = [
 		type: 'number',
 		minimum: 0,
 		maximum: 128,
-	},
-]
-
-const pixelSealDefinitions: SettingDefinition[] = [
-	{
-		key: 'pixel_seal_model_path',
-		label: t(APP_ID, 'PixelSeal checkpoint path'),
-		description: t(APP_ID, 'Absolute local path to Meta’s PixelSeal checkpoint.'),
-		type: 'text',
-	},
-	{
-		key: 'pixel_seal_strength_percent',
-		label: t(APP_ID, 'PixelSeal strength (percent)'),
-		description: t(APP_ID, 'Invisible signal strength from 1 to 100 percent; 20 percent is the model default.'),
-		type: 'number',
-		minimum: 1,
-		maximum: 100,
-	},
-	{
-		key: 'pixel_seal_device',
-		label: t(APP_ID, 'PixelSeal device'),
-		description: t(APP_ID, 'Inference device: auto, cpu, cuda, or mps.'),
-		type: 'text',
 	},
 ]
 
@@ -440,7 +413,7 @@ onBeforeUnmount(() => {
 
 		<NcSettingsSection
 			:name="t(APP_ID, 'Watermark preview')"
-			:description="t(APP_ID, 'This sample PDF uses the saved visible settings and refreshes after each successful save. PixelSeal is omitted because it has no visible preview.')">
+			:description="t(APP_ID, 'This sample PDF uses the saved visible settings and refreshes after each successful save.')">
 			<div
 				class="files-watermark-admin-settings__document"
 				:aria-busy="previewLoading ? 'true' : 'false'">
@@ -456,39 +429,6 @@ onBeforeUnmount(() => {
 				<a :href="previewPdfUrl" target="_blank" rel="noopener noreferrer">
 					{{ t(APP_ID, 'Open PDF preview') }}
 				</a>
-			</div>
-		</NcSettingsSection>
-
-		<NcSettingsSection
-			:name="t(APP_ID, 'Invisible PixelSeal watermark')"
-			:description="t(APP_ID, 'Embed one random 256-bit identifier into every page after visible watermarking. The identifier is returned with the generated file.')">
-			<div class="files-watermark-admin-settings__fields">
-				<div class="files-watermark-admin-settings__switch">
-					<NcCheckboxRadioSwitch
-						:modelValue="values.pixel_seal_enabled === '1'"
-						data-testid="setting-pixel_seal_enabled"
-						@update:modelValue="updateBoolean('pixel_seal_enabled', $event)">
-						{{ t(APP_ID, 'Enable PixelSeal') }}
-					</NcCheckboxRadioSwitch>
-					<small>{{ getStatusText('pixel_seal_enabled', t(APP_ID, 'Requires the VideoSeal Python package and a local PixelSeal checkpoint.')) }}</small>
-				</div>
-				<NcInputField
-					v-for="setting in pixelSealDefinitions"
-					:id="`files-watermark-${setting.key}`"
-					:key="setting.key"
-					:data-testid="`setting-${setting.key}`"
-					:modelValue="values[setting.key]"
-					:label="setting.label"
-					:type="setting.type"
-					:min="setting.minimum"
-					:max="setting.maximum"
-					:step="setting.type === 'number' ? 1 : undefined"
-					:error="Boolean(errors[setting.key])"
-					:success="Boolean(saved[setting.key])"
-					:helperText="getHelperText(setting)"
-					autocomplete="off"
-					@update:modelValue="updateValue(setting.key, $event)"
-					@blur="saveOnBlur(setting.key)" />
 			</div>
 		</NcSettingsSection>
 

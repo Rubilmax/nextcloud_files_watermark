@@ -36,7 +36,7 @@ final class WatermarkService {
 	}
 
 	/**
-	 * @return array{id: string, path: string, name: string, mime: string, size: int|float, invisibleWatermarkId: string|null}
+	 * @return array{id: string, path: string, name: string, mime: string, size: int|float}
 	 */
 	public function generate(string $sourceId, string $sourcePath, string $text): array {
 		$user = $this->userSession->getUser();
@@ -95,7 +95,6 @@ final class WatermarkService {
 				'name' => $generated->getName(),
 				'mime' => $generated->getMimeType(),
 				'size' => $generated->getSize(),
-				'invisibleWatermarkId' => $this->config->isPixelSealEnabled() ? $watermarkId : null,
 			];
 		} finally {
 			$this->removeTemporaryFile($inputPath);

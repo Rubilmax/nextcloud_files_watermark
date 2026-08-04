@@ -42,10 +42,6 @@ final class ConfigLexicon implements ILexicon {
 			new Entry(ConfigService::KEY_WATERMARK_BLUR_OPACITY, ValueType::STRING, (string)ConfigService::DEFAULT_WATERMARK_BLUR_OPACITY, 'Opacity multiplier for the blurred watermark layer'),
 			new Entry(ConfigService::KEY_WATERMARK_DISTORTION_ENABLED, ValueType::STRING, '0', 'Enable sinusoidal visible watermark distortion'),
 			new Entry(ConfigService::KEY_WATERMARK_DISTORTION_STRENGTH, ValueType::STRING, (string)ConfigService::DEFAULT_WATERMARK_DISTORTION_STRENGTH, 'Sinusoidal visible watermark distortion strength in pixels'),
-			new Entry(ConfigService::KEY_PIXEL_SEAL_ENABLED, ValueType::STRING, '1', 'Embed a unique PixelSeal message into every rendered page'),
-			new Entry(ConfigService::KEY_PIXEL_SEAL_MODEL_PATH, ValueType::STRING, ConfigService::DEFAULT_PIXEL_SEAL_MODEL_PATH, 'Absolute path to the PixelSeal checkpoint'),
-			new Entry(ConfigService::KEY_PIXEL_SEAL_STRENGTH, ValueType::STRING, (string)ConfigService::DEFAULT_PIXEL_SEAL_STRENGTH, 'PixelSeal watermark strength as a percent'),
-			new Entry(ConfigService::KEY_PIXEL_SEAL_DEVICE, ValueType::STRING, ConfigService::DEFAULT_PIXEL_SEAL_DEVICE, 'PixelSeal inference device'),
 		];
 	}
 

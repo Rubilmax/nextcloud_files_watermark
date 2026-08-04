@@ -40,15 +40,11 @@ final class ConfigServiceTest extends TestCase {
 				ConfigService::KEY_WATERMARK_BLUR_OPACITY => '101',
 				ConfigService::KEY_WATERMARK_DISTORTION_ENABLED => 'yes',
 				ConfigService::KEY_WATERMARK_DISTORTION_STRENGTH => '129',
-				ConfigService::KEY_PIXEL_SEAL_ENABLED => 'yes',
-				ConfigService::KEY_PIXEL_SEAL_MODEL_PATH => 'relative/model.pth',
-				ConfigService::KEY_PIXEL_SEAL_STRENGTH => '0',
-				ConfigService::KEY_PIXEL_SEAL_DEVICE => 'tpu',
 				default => $default,
 			},
 		);
 		$logger = $this->createMock(LoggerInterface::class);
-		$logger->expects(self::exactly(23))->method('warning');
+		$logger->expects(self::exactly(19))->method('warning');
 		$service = new ConfigService($config, $logger);
 
 		self::assertSame(ConfigService::DEFAULT_PYTHON, $service->getPythonExecutable());
@@ -73,13 +69,9 @@ final class ConfigServiceTest extends TestCase {
 		self::assertSame(ConfigService::DEFAULT_WATERMARK_BLUR_OPACITY, $service->getWatermarkBlurOpacityPercent());
 		self::assertSame(ConfigService::DEFAULT_WATERMARK_DISTORTION_ENABLED, $service->isWatermarkDistortionEnabled());
 		self::assertSame(ConfigService::DEFAULT_WATERMARK_DISTORTION_STRENGTH, $service->getWatermarkDistortionStrengthPixels());
-		self::assertSame(ConfigService::DEFAULT_PIXEL_SEAL_ENABLED, $service->isPixelSealEnabled());
-		self::assertSame(ConfigService::DEFAULT_PIXEL_SEAL_MODEL_PATH, $service->getPixelSealModelPath());
-		self::assertSame(ConfigService::DEFAULT_PIXEL_SEAL_STRENGTH, $service->getPixelSealStrengthPercent());
-		self::assertSame(ConfigService::DEFAULT_PIXEL_SEAL_DEVICE, $service->getPixelSealDevice());
 		// A repeated read does not repeat a warning in the same request.
 		self::assertSame(ConfigService::DEFAULT_DPI, $service->getRasterDpi());
-		self::assertCount(23, $service->getValidationErrors());
+		self::assertCount(19, $service->getValidationErrors());
 	}
 
 	public function testAcceptsInclusiveConfigurationBounds(): void {
@@ -105,10 +97,6 @@ final class ConfigServiceTest extends TestCase {
 				ConfigService::KEY_WATERMARK_BLUR_OPACITY => '100',
 				ConfigService::KEY_WATERMARK_DISTORTION_ENABLED => '1',
 				ConfigService::KEY_WATERMARK_DISTORTION_STRENGTH => '128',
-				ConfigService::KEY_PIXEL_SEAL_ENABLED => '0',
-				ConfigService::KEY_PIXEL_SEAL_MODEL_PATH => '/srv/models/pixelseal.pth',
-				ConfigService::KEY_PIXEL_SEAL_STRENGTH => '100',
-				ConfigService::KEY_PIXEL_SEAL_DEVICE => 'CUDA',
 				default => $default,
 			},
 		);
@@ -133,17 +121,13 @@ final class ConfigServiceTest extends TestCase {
 		self::assertSame(100, $service->getWatermarkBlurOpacityPercent());
 		self::assertTrue($service->isWatermarkDistortionEnabled());
 		self::assertSame(128, $service->getWatermarkDistortionStrengthPixels());
-		self::assertFalse($service->isPixelSealEnabled());
-		self::assertSame('/srv/models/pixelseal.pth', $service->getPixelSealModelPath());
-		self::assertSame(100, $service->getPixelSealStrengthPercent());
-		self::assertSame('cuda', $service->getPixelSealDevice());
 		self::assertSame([], $service->getValidationErrors());
 	}
 
 	public function testNormalizesAndPersistsAdminSettings(): void {
 		$config = $this->createMock(IAppConfig::class);
 		$writes = [];
-		$config->expects(self::exactly(6))
+		$config->expects(self::exactly(4))
 			->method('setAppValueString')
 			->willReturnCallback(static function (string $key, string $value) use (&$writes): bool {
 				$writes[$key] = $value;
@@ -155,15 +139,11 @@ final class ConfigServiceTest extends TestCase {
 		self::assertSame('#a1b2c3', $service->setAdminSetting(ConfigService::KEY_WATERMARK_COLOR, ' #A1B2C3 '));
 		self::assertSame('/usr/bin/python3', $service->setAdminSetting(ConfigService::KEY_PYTHON, ' /usr/bin/python3 '));
 		self::assertSame('1', $service->setAdminSetting(ConfigService::KEY_WATERMARK_DISTORTION_ENABLED, true));
-		self::assertSame('/srv/models/pixel.pth', $service->setAdminSetting(ConfigService::KEY_PIXEL_SEAL_MODEL_PATH, ' /srv/models/pixel.pth '));
-		self::assertSame('mps', $service->setAdminSetting(ConfigService::KEY_PIXEL_SEAL_DEVICE, ' MPS '));
 		self::assertSame([
 			ConfigService::KEY_DPI => '96',
 			ConfigService::KEY_WATERMARK_COLOR => '#a1b2c3',
 			ConfigService::KEY_PYTHON => '/usr/bin/python3',
 			ConfigService::KEY_WATERMARK_DISTORTION_ENABLED => '1',
-			ConfigService::KEY_PIXEL_SEAL_MODEL_PATH => '/srv/models/pixel.pth',
-			ConfigService::KEY_PIXEL_SEAL_DEVICE => 'mps',
 		], $writes);
 	}
 

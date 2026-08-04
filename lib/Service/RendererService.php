@@ -52,7 +52,6 @@ final class RendererService {
 			$this->config->getWatermarkHorizontalGap(),
 			$this->config->getWatermarkVerticalInterval(),
 			$watermarkId,
-			$this->config->isPixelSealEnabled(),
 		);
 	}
 
@@ -103,7 +102,6 @@ final class RendererService {
 			$horizontalGap,
 			$verticalInterval,
 			hash('sha256', 'files-watermark-admin-preview'),
-			false,
 			$previewImagePath,
 		);
 	}
@@ -120,7 +118,6 @@ final class RendererService {
 		int $horizontalGap,
 		int $verticalInterval,
 		string $watermarkId,
-		bool $pixelSealEnabled,
 		?string $previewImagePath = null,
 	): void {
 		try {
@@ -144,11 +141,6 @@ final class RendererService {
 				'watermarkDistortionEnabled' => $this->config->isWatermarkDistortionEnabled(),
 				'watermarkDistortionStrengthPixels' => $this->config->getWatermarkDistortionStrengthPixels(),
 				'randomSeed' => $watermarkId,
-				'pixelSealEnabled' => $pixelSealEnabled,
-				'pixelSealMessage' => $pixelSealEnabled ? $watermarkId : null,
-				'pixelSealModelPath' => $this->config->getPixelSealModelPath(),
-				'pixelSealStrengthPercent' => $this->config->getPixelSealStrengthPercent(),
-				'pixelSealDevice' => $this->config->getPixelSealDevice(),
 			], JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE);
 			$command = [
 				$this->config->getPythonExecutable(),
@@ -240,8 +232,6 @@ final class RendererService {
 		try {
 			$probe = <<<'PYTHON'
 import json
-import os
-import sys
 
 import numpy
 import pymupdf
@@ -251,34 +241,13 @@ status = {
     "pymupdf": pymupdf.__version__,
     "numpy": numpy.__version__,
     "pillow": pillow_version,
-    "pixelSeal": False,
 }
-if sys.argv[2] == "1":
-    import torch
-    import videoseal
-    from omegaconf import OmegaConf
-    from videoseal.utils.cfg import setup_model
-
-    if not os.path.isfile(sys.argv[1]) or not os.access(sys.argv[1], os.R_OK):
-        raise FileNotFoundError(f"PixelSeal checkpoint is unavailable: {sys.argv[1]}")
-    if sys.argv[3] == "cuda" and not torch.cuda.is_available():
-        raise RuntimeError("PixelSeal CUDA device is unavailable.")
-    if sys.argv[3] == "mps" and (
-        not hasattr(torch.backends, "mps") or not torch.backends.mps.is_available()
-    ):
-        raise RuntimeError("PixelSeal MPS device is unavailable.")
-    status["pixelSeal"] = True
-    status["torch"] = torch.__version__
-    status["videoseal"] = getattr(videoseal, "__version__", "unknown")
 print(json.dumps(status, separators=(",", ":")))
 PYTHON;
 			$result = $this->processRunner->run([
 				$this->config->getPythonExecutable(),
 				'-c',
 				$probe,
-				$this->config->getPixelSealModelPath(),
-				$this->config->isPixelSealEnabled() ? '1' : '0',
-				$this->config->getPixelSealDevice(),
 			], '', 10);
 		} catch (\Throwable $exception) {
 			return ['available' => false, 'message' => $exception->getMessage()];
@@ -292,18 +261,10 @@ PYTHON;
 		$version = is_array($status) && isset($status['pymupdf']) && is_string($status['pymupdf'])
 			? $status['pymupdf']
 			: '';
-		$pixelSealAvailable = is_array($status) && ($status['pixelSeal'] ?? false) === true;
-		if ($result->exitCode !== 0 || $version === ''
-			|| ($this->config->isPixelSealEnabled() && !$pixelSealAvailable)) {
+		if ($result->exitCode !== 0 || $version === '') {
 			return [
 				'available' => false,
-				'message' => $this->config->isPixelSealEnabled()
-					? sprintf(
-						'Configured Python cannot load PixelSeal, read its checkpoint at %s, or use device %s.',
-						$this->config->getPixelSealModelPath(),
-						$this->config->getPixelSealDevice(),
-					)
-					: 'Configured Python cannot import the renderer dependencies.',
+				'message' => 'Configured Python cannot import the renderer dependencies.',
 			];
 		}
 
@@ -318,9 +279,7 @@ PYTHON;
 
 		return [
 			'available' => true,
-			'message' => $this->config->isPixelSealEnabled()
-				? sprintf('PyMuPDF %s and PixelSeal are available.', $version)
-				: sprintf('PyMuPDF %s is available; PixelSeal is disabled.', $version),
+			'message' => sprintf('PyMuPDF %s is available.', $version),
 			'version' => $version,
 		];
 	}

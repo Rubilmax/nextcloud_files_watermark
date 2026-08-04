@@ -22,7 +22,6 @@ export type GeneratedFile = {
 	name: string
 	mime: string
 	size: number
-	invisibleWatermarkId: string | null
 }
 
 export type ShareOptions = {

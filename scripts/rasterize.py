@@ -14,7 +14,7 @@ import re
 import sys
 from io import BytesIO
 from pathlib import Path
-from typing import Any, Callable, NoReturn, Protocol
+from typing import Any, NoReturn
 
 EXIT_ENCRYPTED = 10
 EXIT_MALFORMED = 11
@@ -26,7 +26,6 @@ EXIT_DEPENDENCY = 20
 MIN_VERSION = (1, 28, 0)
 MAX_VERSION = (1, 29, 0)
 MAX_PAGE_PIXELS = 50_000_000
-MAX_PIXEL_SEAL_PAGE_PIXELS = 20_000_000
 MAX_PIXEL_DIMENSION = 32_768
 
 
@@ -98,11 +97,6 @@ def read_config() -> dict[str, Any]:
     distortion_enabled = config.get("watermarkDistortionEnabled")
     distortion_strength = config.get("watermarkDistortionStrengthPixels")
     random_seed = config.get("randomSeed")
-    pixel_seal_enabled = config.get("pixelSealEnabled")
-    pixel_seal_message = config.get("pixelSealMessage")
-    pixel_seal_model_path = config.get("pixelSealModelPath")
-    pixel_seal_strength = config.get("pixelSealStrengthPercent")
-    pixel_seal_device = config.get("pixelSealDevice")
     if not isinstance(text, str) or not text or len(text) > 128:
         fail(EXIT_BAD_REQUEST, "invalid_text", "Watermark text must contain 1 to 128 characters.")
     if type(dpi) is not int or not 96 <= dpi <= 300:
@@ -184,35 +178,6 @@ def read_config() -> dict[str, Any]:
         )
     if not isinstance(random_seed, str) or re.fullmatch(r"[0-9a-f]{64}", random_seed) is None:
         fail(EXIT_BAD_REQUEST, "invalid_random_seed", "Random seed must contain exactly 256 bits.")
-    if type(pixel_seal_enabled) is not bool:
-        fail(EXIT_BAD_REQUEST, "invalid_pixel_seal", "PixelSeal must be enabled or disabled.")
-    if pixel_seal_enabled and (
-        not isinstance(pixel_seal_message, str)
-        or re.fullmatch(r"[0-9a-f]{64}", pixel_seal_message) is None
-    ):
-        fail(
-            EXIT_BAD_REQUEST,
-            "invalid_pixel_seal_message",
-            "PixelSeal message must contain exactly 256 bits.",
-        )
-    if not isinstance(pixel_seal_model_path, str) or not Path(pixel_seal_model_path).is_absolute():
-        fail(
-            EXIT_BAD_REQUEST,
-            "invalid_pixel_seal_model_path",
-            "PixelSeal model path must be absolute.",
-        )
-    if type(pixel_seal_strength) is not int or not 1 <= pixel_seal_strength <= 100:
-        fail(
-            EXIT_BAD_REQUEST,
-            "invalid_pixel_seal_strength",
-            "PixelSeal strength must be from 1 to 100 percent.",
-        )
-    if pixel_seal_device not in ("auto", "cpu", "cuda", "mps"):
-        fail(
-            EXIT_BAD_REQUEST,
-            "invalid_pixel_seal_device",
-            "PixelSeal device must be auto, cpu, cuda, or mps.",
-        )
 
     return config
 
@@ -398,106 +363,6 @@ def render_visible_watermark(
     return base.convert("RGB")
 
 
-class PixelSealEmbedder:
-    """Load Meta PixelSeal once and embed one 256-bit message into each page."""
-
-    def __init__(self, config: dict[str, Any]) -> None:
-        try:
-            import torch
-            import videoseal
-            from omegaconf import OmegaConf
-            from videoseal.utils.cfg import setup_model
-        except Exception as exception:
-            fail(
-                EXIT_DEPENDENCY,
-                "pixel_seal_dependency_unavailable",
-                f"PixelSeal dependencies are unavailable: {exception}",
-            )
-
-        model_path = Path(config["pixelSealModelPath"])
-        if not model_path.is_file():
-            fail(
-                EXIT_DEPENDENCY,
-                "pixel_seal_model_unavailable",
-                f"PixelSeal checkpoint is unavailable: {model_path}",
-            )
-
-        requested_device = config["pixelSealDevice"]
-        if requested_device == "auto":
-            if torch.cuda.is_available():
-                requested_device = "cuda"
-            elif hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
-                requested_device = "mps"
-            else:
-                requested_device = "cpu"
-        if requested_device == "cuda" and not torch.cuda.is_available():
-            fail(EXIT_DEPENDENCY, "pixel_seal_device_unavailable", "PixelSeal CUDA device is unavailable.")
-        if requested_device == "mps" and (
-            not hasattr(torch.backends, "mps") or not torch.backends.mps.is_available()
-        ):
-            fail(EXIT_DEPENDENCY, "pixel_seal_device_unavailable", "PixelSeal MPS device is unavailable.")
-
-        try:
-            card_path = Path(videoseal.__file__).resolve().parent / "cards" / "pixelseal.yaml"
-            model_config = OmegaConf.load(card_path)
-            self.model = setup_model(model_config, model_path)
-            self.model.blender.scaling_w = config["pixelSealStrengthPercent"] / 100
-            self.model.to(torch.device(requested_device)).eval()
-        except Exception as exception:
-            fail(
-                EXIT_DEPENDENCY,
-                "pixel_seal_model_unavailable",
-                f"PixelSeal could not load its checkpoint: {exception}",
-            )
-        self.torch = torch
-        message_bytes = bytes.fromhex(config["pixelSealMessage"])
-        message_bits = np.unpackbits(np.frombuffer(message_bytes, dtype=np.uint8)).astype(np.float32)
-        self.message = torch.from_numpy(message_bits).unsqueeze(0)
-
-    def embed(self, image: Image.Image) -> Image.Image:
-        """Embed the configured message into one RGB page image."""
-        pixels = np.asarray(image.convert("RGB"), dtype=np.uint8).copy()
-        tensor = (
-            self.torch.from_numpy(pixels)
-            .permute(2, 0, 1)
-            .unsqueeze(0)
-            .float()
-            .div(255)
-        )
-        try:
-            with self.torch.inference_mode():
-                output = self.model.embed(
-                    tensor,
-                    self.message,
-                    is_video=False,
-                    lowres_attenuation=True,
-                )["imgs_w"]
-            marked = (
-                output.detach()
-                .clamp(0, 1)
-                .mul(255)
-                .round()
-                .to(self.torch.uint8)
-                .squeeze(0)
-                .permute(1, 2, 0)
-                .cpu()
-                .numpy()
-            )
-        except Exception as exception:
-            fail(
-                EXIT_DEPENDENCY,
-                "pixel_seal_embedding_failed",
-                f"PixelSeal could not watermark a rendered page: {exception}",
-            )
-        return Image.fromarray(marked, "RGB")
-
-
-class PageEmbedder(Protocol):
-    def embed(self, image: Image.Image) -> Image.Image:
-        """Embed an invisible message into one rendered page."""
-        ...
-
-
 def encode_jpeg(image: Image.Image, quality: int) -> bytes:
     output = BytesIO()
     image.save(output, format="JPEG", quality=quality, optimize=True)
@@ -505,7 +370,7 @@ def encode_jpeg(image: Image.Image, quality: int) -> bytes:
 
 
 def validate_page_geometry(page: pymupdf.Page, config: dict[str, Any]) -> None:
-    """Reject invalid or unsafe pages before loading PixelSeal or rendering output."""
+    """Reject invalid or unsafe pages before rendering output."""
     visible_rect = page.rect
     if visible_rect.is_empty or visible_rect.is_infinite:
         fail(EXIT_MALFORMED, "invalid_page", "A PDF page has invalid visible dimensions.")
@@ -516,10 +381,6 @@ def validate_page_geometry(page: pymupdf.Page, config: dict[str, Any]) -> None:
         pixel_width > MAX_PIXEL_DIMENSION
         or pixel_height > MAX_PIXEL_DIMENSION
         or pixel_width * pixel_height > MAX_PAGE_PIXELS
-        or (
-            config["pixelSealEnabled"]
-            and pixel_width * pixel_height > MAX_PIXEL_SEAL_PAGE_PIXELS
-        )
     ):
         fail(
             EXIT_PAGE_TOO_LARGE,
@@ -536,7 +397,6 @@ def rasterize(
     output_path: Path,
     config: dict[str, Any],
     preview_image_path: Path | None = None,
-    pixel_seal_factory: Callable[[dict[str, Any]], PageEmbedder] = PixelSealEmbedder,
 ) -> None:
     rng = random.Random(bytes.fromhex(config["randomSeed"]))
     try:
@@ -563,7 +423,6 @@ def rasterize(
         for source_page in source:
             validate_page_geometry(source_page, config)
 
-        pixel_seal = pixel_seal_factory(config) if config["pixelSealEnabled"] else None
         output = pymupdf.open()
         try:
             for source_page in source:
@@ -583,8 +442,6 @@ def rasterize(
                     config,
                     rng,
                 )
-                if pixel_seal is not None:
-                    marked_image = pixel_seal.embed(marked_image)
                 jpeg = encode_jpeg(marked_image, config["jpegQuality"])
                 if preview_image_path is not None and source_page.number == 0:
                     preview_image_path.write_bytes(jpeg)

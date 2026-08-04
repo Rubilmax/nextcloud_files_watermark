@@ -83,7 +83,6 @@ const generated = {
 	name: 'File - Confidential.pdf',
 	mime: 'application/pdf',
 	size: 1234,
-	invisibleWatermarkId: 'a'.repeat(64),
 }
 const derivedNode = {
 	id: '84',
@@ -152,7 +151,6 @@ describe('WatermarkShareSection', () => {
 		expect(mocks.emit).toHaveBeenCalledWith('files:node:created', derivedNode)
 		expect(mocks.emit).toHaveBeenCalledWith('files:node:updated', derivedNode)
 		expect(wrapper.get('[data-testid="share-result"]').text()).toContain('Public link')
-		expect(wrapper.get('[data-testid="invisible-watermark-id"] input').attributes('value')).toBe('a'.repeat(64))
 	})
 
 	it('explicitly disables default expiration and does not send a stale Talk option', async () => {
@@ -220,12 +218,10 @@ describe('WatermarkShareSection', () => {
 		await flushPromises()
 
 		await wrapper.get('[data-testid="share-result"] button').trigger('click')
-		await wrapper.get('[data-testid="invisible-watermark-id"] button').trigger('click')
 		await wrapper.get('[data-testid="open-generated"]').trigger('click')
 		await flushPromises()
 
-		expect(mocks.copyText).toHaveBeenNthCalledWith(1, 'https://cloud.example/s/public-link')
-		expect(mocks.copyText).toHaveBeenNthCalledWith(2, 'a'.repeat(64))
+		expect(mocks.copyText).toHaveBeenCalledWith('https://cloud.example/s/public-link')
 		expect(mocks.openSidebar).toHaveBeenCalledWith(derivedNode, 'sharing')
 	})
 })

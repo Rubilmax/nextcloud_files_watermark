@@ -7,7 +7,7 @@
 
 Watermarked shares (`files_watermark`) is a standalone app for Nextcloud 34. It adds a compact section to the standard Files sharing sidebar for PDF files. A user can create an ordinary public link either to the original PDF (when watermark text is blank) or to a rasterized derivative saved beside it. Compatibility is deliberately bounded to Nextcloud 34 so later server majors can be tested before they are advertised.
 
-The visible watermark is baked into full-page RGB JPEG pixels with randomized spacing, position, and opacity, plus a blurred layer and optional distortion. After that visible pass, the app embeds a random 256-bit [PixelSeal](https://github.com/facebookresearch/videoseal) message into every page. Neither technique is a guarantee against reconstruction, screenshots, inpainting, heavy image transformations, or other AI-assisted removal; they are complementary, best-effort deterrence and tracing signals.
+The visible watermark is baked into full-page RGB JPEG pixels with randomized spacing, position, and opacity, plus a blurred layer and optional distortion. It is a best-effort deterrent, not a guarantee against reconstruction, screenshots, inpainting, heavy image transformations, or other AI-assisted removal.
 
 ## Requirements
 
@@ -15,8 +15,6 @@ The visible watermark is baked into full-page RGB JPEG pixels with randomized sp
 - PHP 8.2–8.5 with the `intl` and `mbstring` extensions and `proc_open` enabled
 - Python 3.10 or newer available locally
 - PyMuPDF `>=1.28.0,<1.29.0` under AGPL, plus NumPy and Pillow, for visible rasterization
-- Meta VideoSeal/PixelSeal under MIT, plus PyTorch and TorchVision, for invisible watermarking
-- The official PixelSeal checkpoint stored locally at the configured path
 
 The app does not install Python or system packages. Administrators provide and maintain the local renderer environment.
 
@@ -51,11 +49,6 @@ cd /var/www/nextcloud/apps/files_watermark
 sudo python3 -m venv /opt/files-watermark-python
 sudo /opt/files-watermark-python/bin/python -m pip install --upgrade pip
 sudo /opt/files-watermark-python/bin/python -m pip install -r requirements.txt
-sudo install -d -m 0755 /opt/files-watermark-python/models
-sudo curl --fail --location \
-	--output /opt/files-watermark-python/models/pixelseal.pth \
-	https://dl.fbaipublicfiles.com/videoseal/pixelseal/checkpoint.pth
-sudo chmod 0644 /opt/files-watermark-python/models/pixelseal.pth
 ```
 
 The default **Python executable** in **Administration settings → Watermark settings** already points to:
@@ -75,8 +68,7 @@ There is no need to activate the virtual environment. Verify that the PHP/web-se
 
 ```sh
 sudo -u www-data /opt/files-watermark-python/bin/python \
-	-c 'import numpy, pymupdf, torch, videoseal; from PIL import Image; print(pymupdf.__version__, torch.__version__)'
-sudo -u www-data test -r /opt/files-watermark-python/models/pixelseal.pth
+	-c 'import numpy, pymupdf; from PIL import Image; print(pymupdf.__version__)'
 sudo -u www-data php /var/www/nextcloud/occ setupchecks
 ```
 
@@ -90,18 +82,11 @@ Do not install Python interactively in a running container: those changes disapp
 FROM nextcloud:34-apache
 
 RUN apt-get update \
-	&& apt-get install -y --no-install-recommends ca-certificates curl git python3 python3-venv \
+	&& apt-get install -y --no-install-recommends python3 python3-venv \
 	&& python3 -m venv /opt/files-watermark-python \
 	&& /opt/files-watermark-python/bin/python -m pip install --no-cache-dir --upgrade pip \
 	&& /opt/files-watermark-python/bin/python -m pip install --no-cache-dir \
 		"PyMuPDF>=1.28.0,<1.29.0" "numpy>=1.26,<3" "Pillow>=10,<13" \
-		"torch>=2.3.1,<3" "torchvision>=0.18,<1" \
-		"videoseal @ git+https://github.com/facebookresearch/videoseal.git@870ca7fb33578b90f14c602016b6c2788096226e" \
-	&& install -d -m 0755 /opt/files-watermark-python/models \
-	&& curl --fail --location \
-		--output /opt/files-watermark-python/models/pixelseal.pth \
-		https://dl.fbaipublicfiles.com/videoseal/pixelseal/checkpoint.pth \
-	&& chmod 0644 /opt/files-watermark-python/models/pixelseal.pth \
 	&& rm -rf /var/lib/apt/lists/*
 ```
 
@@ -126,7 +111,7 @@ docker compose exec -u www-data nextcloud php occ config:app:set \
 	--value="/opt/files-watermark-python/bin/python"
 docker compose exec -u www-data nextcloud \
 	/opt/files-watermark-python/bin/python \
-	-c 'import numpy, pymupdf, torch, videoseal; from PIL import Image; print(pymupdf.__version__, torch.__version__)'
+	-c 'import numpy, pymupdf; from PIL import Image; print(pymupdf.__version__)'
 docker compose exec -u www-data nextcloud php occ setupchecks
 ```
 
@@ -152,15 +137,11 @@ The renderer is now part of the immutable image rather than container state. Doc
 | Blur opacity | 80% | 0–100% |
 | Distortion | disabled | enabled or disabled |
 | Distortion strength | 12 px | 0–128 px |
-| PixelSeal | enabled | enabled or disabled |
-| PixelSeal checkpoint | `/opt/files-watermark-python/models/pixelseal.pth` | absolute local path |
-| PixelSeal strength | 20% | 1–100% |
-| PixelSeal device | `auto` | `auto`, `cpu`, `cuda`, or `mps` |
 | Maximum source size | 50 MiB | 1–1024 MiB |
 | Maximum pages | 200 | 1–5000 |
 | Timeout | 120 seconds | 10–3600 seconds |
 
-The settings page includes a live, one-page preview rendered through the same visible pipeline as generated files. The browser displays the rendered page as an image for reliable cross-browser viewing, with a link to open the actual preview PDF. The preview uses a stable seed so refreshes are comparable and deliberately skips PixelSeal because an invisible signal has no useful visual preview and loading the neural model would make administration changes unnecessarily expensive.
+The settings page includes a live, one-page preview rendered through the same pipeline as generated files. The browser displays the rendered page as an image for reliable cross-browser viewing, with a link to open the actual preview PDF. The preview uses a stable seed so refreshes are comparable.
 
 The visible approach is based on the French government FiligraneFacile implementation in [`BOPdfDocumentTemplate.java`](https://github.com/MTES-MCT/dossierfacile-backend/blob/develop/dossierfacile-pdf-generator/src/main/java/fr/dossierfacile/api/pdfgenerator/service/templates/BOPdfDocumentTemplate.java) and its sinusoidal [`DFFilter.java`](https://github.com/MTES-MCT/dossierfacile-backend/blob/develop/dossierfacile-pdf-generator/src/main/java/fr/dossierfacile/api/pdfgenerator/service/filters/DFFilter.java). Defaults retain the app's previous visible appearance while adding modest variation and blur; distortion remains opt-in.
 
@@ -172,17 +153,13 @@ Invalid stored values are reported by the setup check and clamped to safe defaul
 2. The source is streamed through Nextcloud's Node API into `ITempManager` storage. No data-directory path is accessed, so remote/object storage and transparent server-side encryption remain supported.
 3. The app creates a cryptographically random 256-bit identifier for the derivative. That identifier also seeds the visible layout, so each new derivative has a different but internally repeatable pattern.
 4. PyMuPDF renders the original page and annotations. The renderer adds configurable staggered Unicode tiles with randomized spacing, position, and opacity, composites a Gaussian-blurred copy, optionally distorts the sharp layer, and flattens the result.
-5. PixelSeal embeds the same 256-bit identifier into every visibly watermarked page. The page is then encoded as a quality-88 RGB JPEG and placed alone in a new PDF page.
+5. The page is encoded as a quality-88 RGB JPEG and placed alone in a new PDF page.
 6. The result is streamed back through the Node API as `<original> - <watermark>.pdf`; invalid filename characters, the 240-byte UTF-8 limit, and collisions are handled before creation.
-7. The browser creates an ordinary `shareType=3` link through Nextcloud's OCS Share API, so core password, expiration, permission, and policy checks remain authoritative. It displays the invisible identifier beside the public URL so the owner can retain it for later extraction comparisons.
+7. The browser creates an ordinary `shareType=3` link through Nextcloud's OCS Share API, so core password, expiration, permission, and policy checks remain authoritative.
 
 Output deliberately contains no searchable text, forms, links, annotations, layers, attachments, JavaScript, metadata, or digital signatures. Rasterization reduces accessibility and may substantially increase file size. Password-encrypted PDFs are rejected; Nextcloud server-side encryption is transparent to the Node stream and is supported.
 
-To prevent malformed or unusually large page geometries from exhausting server memory, a single rendered page is limited to 50 million pixels and 32,768 pixels on either axis. Because neural inference needs additional full-page tensors, PixelSeal-enabled pages have a lower 20-million-pixel limit. Lowering the configured DPI can bring large-format pages under these hard safety limits.
-
-PixelSeal inference is substantially heavier than the visible PyMuPDF pass. `auto` chooses CUDA, then Apple MPS, then CPU; set the device explicitly if automatic acceleration is unsuitable. The app never downloads model code or weights during a web request. Generation fails with a renderer-dependency error when PixelSeal is enabled but its package, device, or local checkpoint is unavailable. Administrators can disable PixelSeal while retaining the randomized visible watermark.
-
-The identifier is technically per generated derivative because the current workflow must finish rendering before Nextcloud creates the public-link share. A retry that reuses the retained derivative also reuses its identifier. Creating another derivative creates a new identifier; manually creating several links to the same derivative does not.
+To prevent malformed or unusually large page geometries from exhausting server memory, a single rendered page is limited to 50 million pixels and 32,768 pixels on either axis. Lowering the configured DPI can bring large-format pages under these hard safety limits.
 
 If share creation fails after rendering, the derivative is retained and the UI offers retry and standard generated-file sharing settings. Custom tokens are set from those standard settings because core does not accept them during link creation.
 
@@ -207,8 +184,7 @@ Successful OCS data:
   "path": "/Reports/File - Confidential.pdf",
   "name": "File - Confidential.pdf",
   "mime": "application/pdf",
-  "size": 123456,
-  "invisibleWatermarkId": "3c12e1b5881c2f91f7b9f92cb423dbd27ae8542be9a6765db036fcbed10310ea"
+  "size": 123456
 }
 ```
 

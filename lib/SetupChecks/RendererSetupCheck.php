@@ -61,9 +61,7 @@ final class RendererSetupCheck implements ISetupCheck {
 				);
 			}
 
-			return $this->config->isPixelSealEnabled()
-				? $this->l10n->t('PyMuPDF %s and PixelSeal are available.', $status['version'])
-				: $this->l10n->t('PyMuPDF %s is available; PixelSeal is disabled.', $status['version']);
+			return $this->l10n->t('PyMuPDF %s is available.', $status['version']);
 		}
 
 		return match ($status['message']) {

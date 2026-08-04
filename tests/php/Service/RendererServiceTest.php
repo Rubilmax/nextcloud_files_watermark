@@ -119,11 +119,6 @@ final class RendererServiceTest extends TestCase {
 			self::assertFalse($input['watermarkDistortionEnabled']);
 			self::assertSame(ConfigService::DEFAULT_WATERMARK_DISTORTION_STRENGTH, $input['watermarkDistortionStrengthPixels']);
 			self::assertSame(self::WATERMARK_ID, $input['randomSeed']);
-			self::assertTrue($input['pixelSealEnabled']);
-			self::assertSame(self::WATERMARK_ID, $input['pixelSealMessage']);
-			self::assertSame(ConfigService::DEFAULT_PIXEL_SEAL_MODEL_PATH, $input['pixelSealModelPath']);
-			self::assertSame(ConfigService::DEFAULT_PIXEL_SEAL_STRENGTH, $input['pixelSealStrengthPercent']);
-			self::assertSame(ConfigService::DEFAULT_PIXEL_SEAL_DEVICE, $input['pixelSealDevice']);
 		} finally {
 			@unlink($output);
 		}
@@ -161,8 +156,6 @@ final class RendererServiceTest extends TestCase {
 			self::assertSame(210, $input['watermarkMinimumHorizontalInterval']);
 			self::assertSame(70, $input['watermarkHorizontalGap']);
 			self::assertSame(120, $input['watermarkVerticalInterval']);
-			self::assertFalse($input['pixelSealEnabled']);
-			self::assertNull($input['pixelSealMessage']);
 			self::assertSame(hash('sha256', 'files-watermark-admin-preview'), $input['randomSeed']);
 			self::assertSame($previewImage, $runner->lastCommand[4]);
 			self::assertSame('%JPEG-preview', file_get_contents($previewImage));
@@ -200,7 +193,7 @@ final class RendererServiceTest extends TestCase {
 	public function testAvailabilityChecksPinnedVersionRange(): void {
 		$runner = new FakeProcessRunner(new ProcessResult(
 			0,
-			'{"pymupdf":"1.28.0","numpy":"2.0.0","pillow":"11.0.0","pixelSeal":true}',
+			'{"pymupdf":"1.28.0","numpy":"2.0.0","pillow":"11.0.0"}',
 			'',
 		));
 		$status = (new RendererService($this->createConfig(), $runner))->checkAvailability();
@@ -209,13 +202,11 @@ final class RendererServiceTest extends TestCase {
 		self::assertSame('1.28.0', $status['version']);
 		self::assertSame(ConfigService::DEFAULT_PYTHON, $runner->lastCommand[0]);
 		self::assertSame('-c', $runner->lastCommand[1]);
-		self::assertStringContainsString('import videoseal', $runner->lastCommand[2]);
-		self::assertSame(ConfigService::DEFAULT_PIXEL_SEAL_MODEL_PATH, $runner->lastCommand[3]);
-		self::assertSame('1', $runner->lastCommand[4]);
-		self::assertSame('auto', $runner->lastCommand[5]);
+		self::assertStringContainsString('import pymupdf', $runner->lastCommand[2]);
+		self::assertCount(3, $runner->lastCommand);
 	}
 
-	public function testRejectsInvalidInvisibleWatermarkIdentifierBeforeStartingRenderer(): void {
+	public function testRejectsInvalidRandomSeedBeforeStartingRenderer(): void {
 		$runner = new FakeProcessRunner(new ProcessResult(0, '', ''));
 		$renderer = new RendererService($this->createConfig(), $runner);
 

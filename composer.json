@@ -19,7 +19,7 @@
 		"php": ">=8.2 <8.6"
 	},
 	"require-dev": {
-		"nextcloud/ocp": "34.0.1",
+		"nextcloud/ocp": "35.0.0",
 		"phpstan/phpstan": "^2.2",
 		"phpunit/phpunit": "^11.5"
 	},
@@ -30,7 +30,7 @@
 	},
 	"config": {
 		"platform": {
-			"php": "8.2.0"
+			"php": "8.3.0"
 		},
 		"sort-packages": true
 	}

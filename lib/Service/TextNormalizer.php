@@ -16,7 +16,7 @@ final class TextNormalizer {
 
 	public function normalize(string $text): string {
 		$normalized = Normalizer::normalize($text, Normalizer::FORM_C);
-		if ($normalized !== false) {
+		if (is_string($normalized)) {
 			$text = $normalized;
 		}
 

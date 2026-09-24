@@ -36,7 +36,7 @@ final class RendererSetupCheck implements ISetupCheck {
 		if ($validationErrors !== []) {
 			return SetupResult::warning($this->l10n->t(
 				'Invalid Watermarked shares settings: %s Safe defaults will be used.',
-				implode(' ', $validationErrors),
+				[implode(' ', $validationErrors)],
 			));
 		}
 
@@ -44,7 +44,7 @@ final class RendererSetupCheck implements ISetupCheck {
 		if (!$status['available']) {
 			return SetupResult::error($this->l10n->t(
 				'The Watermarked shares renderer is unavailable: %s',
-				$this->translateRendererStatus($status),
+				[$this->translateRendererStatus($status)],
 			));
 		}
 
@@ -57,11 +57,11 @@ final class RendererSetupCheck implements ISetupCheck {
 			if (!$status['available']) {
 				return $this->l10n->t(
 					'PyMuPDF %s is outside the supported >=1.28.0,<1.29.0 range.',
-					$status['version'],
+					[$status['version']],
 				);
 			}
 
-			return $this->l10n->t('PyMuPDF %s is available.', $status['version']);
+			return $this->l10n->t('PyMuPDF %s is available.', [$status['version']]);
 		}
 
 		return match ($status['message']) {
